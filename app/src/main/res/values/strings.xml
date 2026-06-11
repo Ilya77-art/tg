@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Terra</string>
+    <string name="health_rationale_title">Why Terra reads your activity</string>
+    <string name="health_rationale_body">Terra turns your real-world activity into Vitas energy that grows your planet. We read steps, sleep, exercise sessions and nutrition entries — read-only, summarized daily on your device, never shared.</string>
+    <string name="notification_channel_name">Planet care</string>
+    <string name="notification_channel_description">Gentle reminders about your planet</string>
+</resources>
