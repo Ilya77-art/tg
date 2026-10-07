@@ -1,0 +1,2 @@
+{"students:v1": {"s1": {"id":"s1","name":"Маша","piece":"N","hue":200,"created":1,"v":3,"profile":{"onboard":2,"path":{"season":1,"base":0,"seen":5,"paid":5,"promos":[]}},"earned":{"ZAD":{"t01":3,"t02":3,"t07":2}},"bonus":90,"inv":{},"decor":{},"medals":null}},
+ "active": "s1", "shop": "skins"}
