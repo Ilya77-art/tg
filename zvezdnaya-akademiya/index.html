@@ -2637,7 +2637,8 @@ window.ACAD_BOTART = {"chars":{"b01":"data:image/webp;base64,UklGRkxyAABXRUJQVlA
     { id: 'L06', file: 'lessons/06-kon-sprut.html', title: 'Конь-спрут', sub: 'Слабые поля и форпосты', mode: 'best', max: 18, hue: 195, glyph: 'N' },
     { id: 'L07', file: 'lessons/07-shifr-laskera.html', title: 'Шифр Ласкера', sub: 'Цугцванг и поля соответствия', mode: 'best', max: 24, hue: 25, glyph: 'K' },
     { id: 'L08', file: 'lessons/08-dar-danaitsev.html', title: 'Дар данайцев', sub: 'Жертва слона на h7', mode: 'best', max: 21, hue: 15, glyph: 'N' },
-    { id: 'L09', file: 'lessons/09-nichya-iz-shlyapy.html', title: 'Ничья из шляпы', sub: 'Пат, вечный шах, Сааведра', mode: 'best', max: 21, hue: 290, glyph: 'Q' }
+    { id: 'L09', file: 'lessons/09-nichya-iz-shlyapy.html', title: 'Ничья из шляпы', sub: 'Пат, вечный шах, Сааведра', mode: 'best', max: 21, hue: 290, glyph: 'Q' },
+    { id: 'L10', file: 'lessons/10-melnitsa-torre.html', title: 'Мельница Торре', sub: 'Вскрытый и двойной шах, мельница', mode: 'best', max: 21, hue: 100, glyph: 'R' }
   ];
   const RARITY = {
     common: { name: 'Обычный', color: '#98989d', price: 4, refund: 1, order: 0 },
@@ -2770,7 +2771,7 @@ window.ACAD_BOTART = {"chars":{"b01":"data:image/webp;base64,UklGRkxyAABXRUJQVlA
     I('b_cipher', 'badge', 'rare', 'Шифр Ласкера', 'Из урока «Шифр Ласкера»: 1.Крb1! — ключ к полям соответствия.', { icon: 'lock' }),
     I('b_horse', 'badge', 'rare', 'Дар данайцев', 'Из урока «Дар данайцев»: «Бойтесь данайцев, дары приносящих».', { icon: 'horse' }),
     I('b_hat', 'badge', 'epic', 'Цилиндр фокусника', 'Из урока «Ничья из шляпы»: пат, бешеная ладья и вечный шах.', { icon: 'hat' }),
-    I('b_cup', 'badge', 'legendary', 'Кубок академии', 'Для тех, кто прошёл все девять уроков и не сдался ни разу.', { icon: 'cup' }),
+    I('b_cup', 'badge', 'legendary', 'Кубок академии', 'Для тех, кто прошёл все десять уроков и не сдался ни разу.', { icon: 'cup' }),
     I('b_crown', 'badge', 'mythic', 'Корона чемпиона мира', 'Первым официальным чемпионом мира в 1886 году стал Вильгельм Стейниц.', { icon: 'crown' }),
     /* cards of famous games and studies (checked in the build) */
     I('c_fool', 'card', 'common', 'Дурацкий мат', 'Самый быстрый мат в шахматах — на втором ходу. Белые сами открыли своего короля.', { moves: 'f3 e5 g4 Qh4#', mate: true, year: '2 хода' }),
@@ -4567,7 +4568,7 @@ function renderHome() {
     </section>`
     : `<section class="tl tl-hero th th-default" style="--i:0;--h:235">
       <span class="nm">Звёздная академия.</span>
-      <span class="t-meta">Шахматный кружок · 9 уроков · 24 задачи</span>
+      <span class="t-meta">Шахматный кружок · ${C.LESSONS.length} ${plural(C.LESSONS.length, 'урок', 'урока', 'уроков')} · 24 задачи</span>
       <div class="meta"><span>Решай задачи — получай звёзды. Пешка идёт по пути, а фигура собирает скины и наклейки.</span></div>
       <span></span><span></span>
       <div class="row"><button type="button" class="btn" id="hAdd">Добавить ученика</button>${list.length ? '<button type="button" class="btn soft" id="hPick" data-pick-menu="1">Выбрать</button>' : ''}</div>
