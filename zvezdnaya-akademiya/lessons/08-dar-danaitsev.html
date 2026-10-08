@@ -1,0 +1,1449 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Academy bridge: lets a lesson running inside «Звёздная академия» report stars per student.
+   Standalone (no academy) the lesson behaves exactly as before: window.Academy.on === false. */
+(function () {
+  var L = 'L08';
+  var embed = false;
+  try { embed = !!window.ACADEMY_EMBED || /[?&]academy=1/.test(location.search); } catch (e) { embed = false; }
+  if (embed && window.parent === window) embed = false;
+  var roster = [], tablo = {}, subs = [];
+  function post(m) { m.__academy = 1; m.lesson = L; try { window.parent.postMessage(m, '*'); } catch (e) { /* parent unreachable */ } }
+  function emit() { subs.slice().forEach(function (f) { try { f(); } catch (e) { /* listener error */ } }); }
+  var A = {
+    on: embed,
+    lesson: L,
+    roster: function () { return roster; },
+    tablo: function () { return tablo; },
+    onRoster: function (f) { subs.push(f); },
+    /* key: chapter id for 'best' (keeps the student's best result), or null for 'add' (adds up) */
+    reward: function (key, n, label, mode) {
+      if (!embed) return;
+      n = Math.round(+n || 0); if (n <= 0) return;
+      post({ type: 'reward', key: key, n: n, label: String(label || ''), mode: mode || 'best' });
+    },
+    points: function (id, d) {
+      if (!embed) return;
+      var was = tablo[id] || 0, now = Math.max(0, was + (Math.round(+d) || 0));
+      if (now === was) return;
+      tablo[id] = now; emit();
+      post({ type: 'points', student: id, d: now - was });
+    },
+    addStudent: function (name) { if (embed) post({ type: 'add-student', name: String(name || '').slice(0, 40) }); },
+    rename: function (id, name) { if (embed) post({ type: 'rename', student: id, name: String(name || '').slice(0, 40) }); },
+    download: function (filename, data) { if (embed) post({ type: 'download', filename: filename, data: data }); },
+    scores: function () {
+      return {
+        list: function () { return roster.map(function (s) { return { id: s.id, n: s.name, s: tablo[s.id] || 0 }; }); },
+        sorted: function () { return this.list().sort(function (a, b) { return b.s - a.s; }); },
+        isExample: function () { return false; },
+        add: function (n) { A.addStudent(n); },
+        inc: function (id, d) { A.points(id, d); },
+        rename: function (id, n) { var r = roster.find(function (x) { return x.id === id; }); if (r) r.name = n; A.rename(id, n); },
+        remove: function () {}, zero: function () {}, clear: function () {},
+        on: function (f) { subs.push(function () { f(); }); }
+      };
+    }
+  };
+  window.Academy = A;
+  if (!embed) return;
+  document.documentElement.classList.add('academy');
+  var st = document.createElement('style');
+  st.textContent = '.academy #sc-zero,.academy #sc-clear,.academy .sc-row .x{display:none!important}.academy .sc-row{grid-template-columns:22px 1fr auto auto auto!important}';
+  (document.head || document.documentElement).appendChild(st);
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || !d.__academy || e.source !== window.parent) return;
+    if (d.type === 'roster') { roster = Array.isArray(d.students) ? d.students : []; tablo = d.tablo || {}; emit(); }
+  });
+  post({ type: 'hello' });
+})();
+</script>
+<title>Дар данайцев</title>
+<meta name="description" content="Шахматный урок на 90 минут о жертве слона на h7: три дороги короля, загадка Сфинкса, оракул, ответный дар, мастерская Эпея, оборона Трои и партия Колле — О'Ханлон (1930).">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Forum&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Alegreya+Sans+SC:wght@500;700&display=swap" rel="stylesheet">
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* «Дар данайцев» — black-figure pottery: clay, black glaze, meander, laurel */
+:root {
+  --paper: #f2e4c9;
+  --paper-2: #e9d6b2;
+  --card: #fbf3e2;
+  --ink: #1d1611;
+  --muted: #6c5a45;
+  --line: rgba(29, 22, 17, .15);
+  --line-2: rgba(29, 22, 17, .32);
+  --terra: #b4502a;
+  --terra-soft: rgba(180, 80, 42, .14);
+  --sea: #275b78;
+  --sea-soft: rgba(39, 91, 120, .14);
+  --olive: #4f6427;
+  --olive-soft: rgba(79, 100, 39, .16);
+  --gold: #a87a22;
+  --sq-l: #f0d8ae;
+  --sq-d: #c7743d;
+  --glaze: #1d1611;
+  --shadow: 0 18px 34px -24px rgba(60, 30, 10, .6);
+  --f-head: 'Forum', 'Georgia', serif;
+  --f-body: 'Alegreya Sans', 'Trebuchet MS', sans-serif;
+  --f-sc: 'Alegreya Sans SC', 'Alegreya Sans', sans-serif;
+  --bar: 64px;
+  --mh: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16'%3E%3Cpath d='M0 1H20M0 15H20M3 15V4H16V12H8V7H12' fill='none' stroke='%23c4682f' stroke-width='1.8'/%3E%3C/svg%3E");
+  --mv: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='20'%3E%3Cpath d='M1 0V20M15 0V20M15 3H4V16H12V8H7V12' fill='none' stroke='%23c4682f' stroke-width='1.8'/%3E%3C/svg%3E");
+  --mh-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16'%3E%3Cpath d='M0 1H20M0 15H20M3 15V4H16V12H8V7H12' fill='none' stroke='%231d1611' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #15100c; --paper-2: #1e1712; --card: #241b14; --ink: #f3e3c6; --muted: #b9a283;
+    --line: rgba(243, 227, 198, .12); --line-2: rgba(243, 227, 198, .26);
+    --terra: #ec7c4c; --terra-soft: rgba(236, 124, 76, .16); --sea: #82b8d8; --sea-soft: rgba(130, 184, 216, .16);
+    --olive: #a8c56c; --olive-soft: rgba(168, 197, 108, .16); --gold: #e3b75c;
+    --sq-l: #e9cfa2; --sq-d: #b9652f; --glaze: #0b0806;
+    --shadow: 0 18px 34px -20px rgba(0, 0, 0, .85);
+    --mh-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16'%3E%3Cpath d='M0 1H20M0 15H20M3 15V4H16V12H8V7H12' fill='none' stroke='%23ec7c4c' stroke-width='1.6'/%3E%3C/svg%3E");
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #15100c; --paper-2: #1e1712; --card: #241b14; --ink: #f3e3c6; --muted: #b9a283;
+  --line: rgba(243, 227, 198, .12); --line-2: rgba(243, 227, 198, .26);
+  --terra: #ec7c4c; --terra-soft: rgba(236, 124, 76, .16); --sea: #82b8d8; --sea-soft: rgba(130, 184, 216, .16);
+  --olive: #a8c56c; --olive-soft: rgba(168, 197, 108, .16); --gold: #e3b75c;
+  --sq-l: #e9cfa2; --sq-d: #b9652f; --glaze: #0b0806;
+  --shadow: 0 18px 34px -20px rgba(0, 0, 0, .85);
+  --mh-ink: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='16'%3E%3Cpath d='M0 1H20M0 15H20M3 15V4H16V12H8V7H12' fill='none' stroke='%23ec7c4c' stroke-width='1.6'/%3E%3C/svg%3E");
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body { background: radial-gradient(110% 70% at 50% 0%, rgba(255, 255, 255, .22), transparent 60%), var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 17px; line-height: 1.42; -webkit-font-smoothing: antialiased; }
+button { font: inherit; color: inherit; }
+a { color: var(--sea); }
+:focus-visible { outline: 2px solid var(--sea); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 400; }
+p { margin: 0; }
+#app { min-height: 100%; display: grid; grid-template-rows: var(--bar) minmax(0, 1fr); padding-inline: 16px; }
+
+/* ---------- header ---------- */
+.bar { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; padding-bottom: 6px; }
+.bar::after { content: ""; position: absolute; left: 0; right: 0; bottom: -10px; height: 12px; background: var(--mh-ink) 0 0 / 15px 12px repeat-x; opacity: .85; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo svg { width: 40px; height: 40px; flex: none; }
+.logo b { font-family: var(--f-head); font-weight: 400; font-size: 25px; letter-spacing: .06em; line-height: 1; }
+.logo span { display: block; font-family: var(--f-sc); font-size: 13px; color: var(--muted); letter-spacing: .08em; }
+.tabs { display: flex; gap: 4px; overflow-x: auto; scrollbar-width: none; align-items: center; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs > :first-child { margin-left: auto; }
+.tabs > :last-child { margin-right: auto; }
+.tabs button { flex: none; height: 38px; min-width: 38px; border: 1.5px solid var(--line-2); background: transparent; border-radius: 19px; padding: 0 12px; cursor: pointer; font-family: var(--f-head); font-size: 19px; color: var(--muted); display: flex; align-items: center; gap: 7px; white-space: nowrap; }
+.tabs button .tl { font-family: var(--f-sc); font-size: 14px; letter-spacing: .03em; display: none; }
+.tabs button .lv { display: inline-flex; gap: 1px; }
+.tabs button .lv i { width: 6px; height: 6px; border-radius: 50%; background: var(--line-2); }
+.tabs button .lv i.on { background: var(--olive); }
+.tabs button:hover { color: var(--ink); border-color: var(--ink); }
+.tabs button[aria-current="true"] { background: var(--ink); color: var(--card); border-color: var(--ink); }
+.tabs button[aria-current="true"] .tl { display: inline; }
+.tabs button[aria-current="true"] .lv i.on { background: var(--gold); }
+.tools { display: flex; align-items: center; gap: 8px; }
+.laurels { display: flex; align-items: center; gap: 6px; font-family: var(--f-sc); font-size: 15px; padding: 5px 12px 5px 8px; border: 1.5px solid var(--line-2); border-radius: 18px; white-space: nowrap; }
+.laurels svg { width: 22px; height: 22px; color: var(--olive); }
+.laurels b { font-family: var(--f-head); font-weight: 400; font-size: 19px; color: var(--olive); }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--line-2); background: transparent; cursor: pointer; display: grid; place-items: center; color: var(--muted); }
+.icon-btn:hover { color: var(--ink); border-color: var(--ink); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn[aria-pressed="false"] { opacity: .5; }
+
+/* ---------- stage ---------- */
+.stage { --bs: min(calc(100vh - var(--bar) - 110px), 54vw, 640px); display: grid; grid-template-columns: var(--bs) minmax(300px, 440px); justify-content: center; align-items: center; gap: 30px; padding-block: 26px 18px; min-height: 0; }
+.board-col { width: var(--bs); display: flex; flex-direction: column; gap: 10px; }
+.board-frame { width: 100%; aspect-ratio: 1; padding: 16px; position: relative; box-shadow: var(--shadow); border-radius: 3px;
+  background: var(--mh) 0 0 / 20px 16px repeat-x, var(--mh) 0 100% / 20px 16px repeat-x, var(--mv) 0 0 / 16px 20px repeat-y, var(--mv) 100% 0 / 16px 20px repeat-y, var(--glaze); }
+.board { position: relative; width: 100%; height: 100%; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); user-select: none; -webkit-user-select: none; touch-action: none; overflow: hidden; background: var(--sq-l); }
+.sq { position: relative; display: grid; place-items: center; }
+.sq.l { background: var(--sq-l); }
+.sq.d { background: var(--sq-d); }
+.board.clicky .sq { cursor: pointer; }
+.sq.last::before, .sq.sel::before, .sq.check::before, .sq[data-mark]:not([data-mark=""])::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.sq.last::before { background: rgba(255, 236, 160, .38); }
+.sq.sel::before { background: rgba(39, 91, 120, .38); }
+.sq.check::before { background: radial-gradient(circle, rgba(220, 40, 20, .75), rgba(220, 40, 20, 0) 70%); }
+.sq[data-mark="pick"]::before { box-shadow: inset 0 0 0 4px var(--sea); }
+.sq[data-mark="ok"]::before { background: rgba(79, 100, 39, .42); box-shadow: inset 0 0 0 4px #4f6427; }
+.sq[data-mark="bad"]::before { box-shadow: inset 0 0 0 4px #8e1d0e; background: rgba(142, 29, 14, .25); }
+.sq[data-mark="cand"]::before { inset: 35%; border-radius: 50%; background: rgba(29, 22, 17, .55); box-shadow: 0 0 0 3px rgba(255, 250, 235, .75); }
+.sq[data-mark="find"]::before { box-shadow: inset 0 0 0 4px var(--gold); background: rgba(232, 190, 90, .25); }
+.sq[data-mark="target"]::before { box-shadow: inset 0 0 0 3px #8e1d0e; border-radius: 50%; inset: 8%; }
+.sq.dot::after { content: ""; position: absolute; width: 24%; height: 24%; border-radius: 50%; background: rgba(29, 22, 17, .4); pointer-events: none; }
+.sq.cap::after { content: ""; position: absolute; inset: 6%; border-radius: 50%; border: 4px solid rgba(29, 22, 17, .4); pointer-events: none; }
+.co { position: absolute; font-family: var(--f-sc); font-size: clamp(9px, 1.15vmin, 12px); line-height: 1; pointer-events: none; z-index: 1; font-weight: 700; }
+.sq.l .co { color: #b0602f; }
+.sq.d .co { color: #f6e2bd; }
+.co-r { top: 3px; left: 3px; }
+.co-f { bottom: 2px; right: 3px; }
+.pc { width: 90%; height: 90%; position: relative; z-index: 2; pointer-events: none; }
+.pc.anim { transition: transform .22s cubic-bezier(.3, .7, .4, 1); }
+.pc.lift { opacity: .3; }
+.pc.pop { animation: pop .35s cubic-bezier(.2, 1.4, .5, 1); }
+@keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+.drag-ghost { position: fixed; z-index: 100; pointer-events: none; transform: translate(-50%, -50%) scale(1.08); }
+.board .ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.board-frame.flash-bad { animation: fbad .6s; }
+@keyframes fbad { 30% { box-shadow: 0 0 0 5px #b4502a; } }
+.board-frame.flash-ok { animation: fok .8s; }
+@keyframes fok { 30% { box-shadow: 0 0 0 5px #6f8a35; } }
+.promo { position: absolute; inset: 0; z-index: 5; background: rgba(0, 0, 0, .45); display: grid; place-items: center; }
+.promo-box { display: flex; gap: 6px; padding: 8px; background: var(--card); }
+.promo-box button { width: 60px; aspect-ratio: 1; border: 1px solid var(--line-2); background: var(--sq-l); cursor: pointer; }
+.promo-box svg { width: 100%; height: 100%; }
+
+/* scroll with moves */
+.scroll { position: relative; height: 38px; margin-inline: 10px; background: linear-gradient(#f7ecd3, #ead6ae); border-block: 1px solid rgba(29, 22, 17, .25); display: flex; align-items: center; overflow: hidden; padding-inline: 18px; font-family: var(--f-body); font-size: 15px; color: #2a1e14; white-space: nowrap; }
+.scroll::before, .scroll::after { content: ""; position: absolute; top: -4px; bottom: -4px; width: 12px; border-radius: 6px; background: linear-gradient(90deg, #8c6a43, #d9b98a 45%, #8c6a43); }
+.scroll::before { left: -2px; }
+.scroll::after { right: -2px; }
+.scroll .tm { display: flex; gap: 10px; margin-left: auto; }
+.scroll .n { color: #8d7559; margin-right: 2px; }
+.scroll .lead { font-family: var(--f-sc); color: #8d7559; letter-spacing: .06em; }
+
+/* ---------- card ---------- */
+.card { position: relative; background: var(--card); border: 1.5px solid var(--ink); padding: 30px 24px 22px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 14px; min-width: 0; border-radius: 2px; }
+.card::before { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 12px; background: var(--mh-ink) 0 0 / 15px 12px repeat-x; border-bottom: 1.5px solid var(--ink); }
+.kicker { font-family: var(--f-sc); font-size: 14px; letter-spacing: .08em; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.kicker b { color: var(--terra); font-weight: 500; }
+.title { font-family: var(--f-head); font-size: clamp(30px, 2.8vw, 40px); line-height: 1.02; letter-spacing: .01em; }
+.task { font-size: 17px; line-height: 1.45; }
+.task b { color: var(--terra); }
+.rules { list-style: none; margin: 0; padding: 0; display: grid; gap: 7px; font-size: 16px; }
+.rules li { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 6px; align-items: start; }
+.rules li .ic { width: 24px; height: 24px; }
+.rules li.dim { opacity: .4; }
+.note { border-left: 3px solid var(--terra); padding: 2px 0 2px 12px; color: var(--muted); font-size: 16px; }
+.note b { color: var(--ink); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); padding: 9px 16px; border-radius: 20px; cursor: pointer; font-family: var(--f-sc); font-size: 15px; letter-spacing: .02em; line-height: 1.1; transition: background .15s, color .15s, transform .1s; }
+.btn:hover { background: var(--paper-2); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--ink); color: var(--card); }
+.btn.primary:hover { background: var(--terra); border-color: var(--terra); color: #fff; }
+.btn.hint { border-style: dashed; color: var(--sea); border-color: var(--sea); }
+.btn.big { padding: 12px 22px; font-size: 16px; }
+.btn.armed { background: var(--terra); border-color: var(--terra); color: #fff; }
+.duo { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.duo button { border: 1.5px solid var(--ink); background: transparent; border-radius: 6px; padding: 12px 10px; cursor: pointer; text-align: left; display: grid; gap: 2px; }
+.duo button b { font-family: var(--f-head); font-weight: 400; font-size: 21px; line-height: 1.1; }
+.duo button span { font-size: 14px; color: var(--muted); }
+.duo button:hover { background: var(--paper-2); }
+.duo button.right { background: var(--olive); border-color: var(--olive); color: var(--card); }
+.duo button.right span { color: inherit; opacity: .85; }
+.duo button.wrong { background: var(--terra-soft); border-color: var(--terra); }
+.tokens { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.tokens button { border: 1.5px solid var(--line-2); background: var(--paper-2); border-radius: 8px; padding: 6px 4px 8px; cursor: pointer; display: grid; justify-items: center; gap: 2px; font-family: var(--f-sc); font-size: 14px; }
+.tokens button svg { width: 42px; height: 42px; }
+.tokens button small { color: var(--muted); font-size: 13px; }
+.tokens button[aria-pressed="true"] { border-color: var(--sea); box-shadow: 0 0 0 3px var(--sea-soft); background: var(--card); }
+.tokens button.placed small { color: var(--olive); }
+.fb { min-height: 48px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--paper-2); border-radius: 6px; font-size: 16px; }
+.fb:empty { background: transparent; }
+.fb[data-type="ok"] { background: var(--olive-soft); }
+.fb[data-type="bad"] { background: var(--terra-soft); }
+.fb[data-type="warn"] { background: var(--sea-soft); }
+.fb-mark { flex: none; width: 22px; height: 22px; display: grid; place-items: center; font-size: 13px; font-weight: 700; border: 1.5px solid currentColor; border-radius: 50%; }
+.fb[data-type="ok"] .fb-mark { color: var(--olive); }
+.fb[data-type="bad"] .fb-mark { color: var(--terra); }
+.fb[data-type="warn"] .fb-mark { color: var(--sea); }
+.shake { animation: shake .35s; }
+@keyframes shake { 20% { transform: translateX(-5px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-2px); } 100% { transform: none; } }
+.meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-family: var(--f-sc); font-size: 14px; color: var(--muted); }
+.pips { display: flex; gap: 5px; }
+.pips i { width: 13px; height: 13px; transform: rotate(45deg); border: 1.5px solid var(--line-2); }
+.pips i.done { background: var(--olive); border-color: var(--olive); }
+.pips i.miss { background: var(--terra); border-color: var(--terra); }
+.pips i.now { border-color: var(--ink); border-width: 2.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { font-family: var(--f-sc); font-size: 14px; padding: 4px 10px; border-radius: 14px; background: var(--paper-2); }
+.chips span.ok { background: var(--olive-soft); color: var(--olive); }
+
+/* laurel finish */
+.wreaths { display: flex; gap: 10px; align-items: center; min-height: 58px; }
+.wreaths svg { width: 50px; height: 50px; color: var(--olive); animation: pop .45s cubic-bezier(.2, 1.4, .5, 1) backwards; }
+.wreaths svg:nth-child(2) { animation-delay: .12s; }
+.wreaths svg:nth-child(3) { animation-delay: .24s; }
+.wreaths svg.off { color: var(--line-2); }
+.seal { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 4; pointer-events: none; font-family: var(--f-head); font-size: clamp(26px, 4.4vw, 52px); letter-spacing: .08em; color: #f6e3bd; background: rgba(29, 22, 17, .82); border: 3px solid #c4682f; outline: 2px solid rgba(29, 22, 17, .82); outline-offset: 3px; padding: 10px 26px 6px; white-space: nowrap; animation: sealin .4s cubic-bezier(.2, 1.4, .4, 1), sealfade .8s 2.4s forwards; }
+.seal.good { border-color: #a8c56c; }
+@keyframes sealin { from { transform: scale(1.8); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sealfade { to { opacity: .15; } }
+.answer-row { display: flex; gap: 8px; }
+.links { display: grid; gap: 6px; }
+.links a { display: flex; justify-content: space-between; gap: 10px; padding: 8px 14px; border: 1.5px solid var(--line-2); border-radius: 20px; text-decoration: none; color: var(--ink); font-family: var(--f-sc); font-size: 15px; }
+.links a span { color: var(--muted); }
+.links a:hover { border-color: var(--ink); }
+
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100%); z-index: 60; background: var(--card); border-left: 2px solid var(--ink); padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 20px; overflow-y: auto; transform: translateX(105%); transition: transform .25s ease; font-size: 16px; }
+.drawer.open { transform: none; }
+.drawer h3 { font-family: var(--f-head); font-size: 26px; margin-bottom: 10px; }
+.drawer ul { padding-left: 18px; margin: 0; display: grid; gap: 8px; color: var(--muted); }
+.drawer .close { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; }
+#confetti { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
+
+@media (max-width: 1180px) { .logo span { display: none; } }
+@media (max-width: 980px) {
+  #app { grid-template-rows: auto minmax(0, 1fr); }
+  .bar { grid-template-columns: minmax(0, 1fr) auto; padding-top: 10px; row-gap: 10px; }
+  .tabs { grid-column: 1 / -1; order: 3; }
+  .stage { --bs: min(100%, 560px); grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 22px; }
+  .board-col, .card { width: 100%; max-width: 560px; }
+}
+@media (max-width: 520px) {
+  .logo { min-width: 0; gap: 7px; }
+  .logo b { font-size: 16px; letter-spacing: .02em; white-space: nowrap; }
+  .scroll .lead { display: none; }
+  .logo svg { width: 32px; height: 32px; }
+  .laurels { padding: 4px 9px 4px 6px; }
+  .title { font-size: 28px; }
+  .card { padding: 26px 16px 18px; }
+  .board-frame { padding: 12px; background-size: 15px 12px, 15px 12px, 12px 15px, 12px 15px; }
+  .tabs button { padding: 0 10px; font-size: 17px; height: 34px; min-width: 34px; }
+  .tabs button .lv { display: none; }
+  .duo button b { font-size: 18px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+
+</style>
+<div id="app">
+  <header class="bar">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" aria-hidden="true"><g style="fill:var(--terra)"><rect x="10" y="19" width="24" height="10" rx="2"/><polygon points="27,21 33,7 39,8 34,23"/><polygon points="33,7 45,11 44,15 36,14"/><polygon points="33,8 34,3 37,7"/><rect x="12" y="28" width="3.2" height="8"/><rect x="18" y="28" width="3.2" height="8"/><rect x="24.5" y="28" width="3.2" height="8"/><rect x="30" y="28" width="3.2" height="8"/><rect x="7" y="36" width="32" height="3" rx="1"/></g><path d="M10 21 Q4 24 6 31" style="fill:none;stroke:var(--terra)" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="42" r="3.2" style="fill:var(--paper);stroke:var(--ink)" stroke-width="2"/><circle cx="34" cy="42" r="3.2" style="fill:var(--paper);stroke:var(--ink)" stroke-width="2"/><circle cx="39.5" cy="10.5" r="1" style="fill:var(--ink)"/></svg>
+      <div><b>ДАР ДАНАЙЦЕВ</b><span>жертва слона на h7</span></div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Песни урока"></nav>
+    <div class="tools">
+      <span class="laurels" id="laurels" aria-live="polite"></span>
+      <button type="button" class="icon-btn" id="soundBtn" aria-pressed="true" aria-label="Звук" title="Звук"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button type="button" class="icon-btn" id="notesBtn" aria-label="Заметки ведущему" title="Заметки ведущему"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h7M9 15h7M9 7h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </header>
+  <main class="stage">
+    <div class="board-col">
+      <div class="board-frame" id="frame"><div class="board" id="board"></div></div>
+      <div class="scroll" aria-label="Свиток ходов"><span class="lead">свиток</span><span class="tm" id="tapeMoves"></span></div>
+    </div>
+    <section class="card" id="card" aria-live="polite"></section>
+  </main>
+</div>
+<aside class="drawer" id="drawer" aria-label="Заметки ведущему">
+  <button type="button" class="icon-btn close" id="drawerClose" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <h3>Ведущему</h3>
+  <div id="notes"></div>
+</aside>
+<canvas id="confetti" aria-hidden="true"></canvas>
+
+<script>
+/* Mini chess core: legal moves, SAN (EN/RU), FEN. Written for this lesson page. */
+(function (root) {
+  'use strict';
+  var FILES = 'abcdefgh';
+  var START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  var KN = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+  var KG = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  var BD = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  var RD = [[1,0],[-1,0],[0,1],[0,-1]];
+  function sqName(i) { return FILES[i & 7] + ((i >> 3) + 1); }
+  function sqIndex(s) { return (s.charCodeAt(0) - 97) + (parseInt(s[1], 10) - 1) * 8; }
+  function colorOf(p) { return p ? (p === p.toUpperCase() ? 'w' : 'b') : null; }
+  function on(f, r) { return f >= 0 && f < 8 && r >= 0 && r < 8; }
+
+  function Position(fen) { this.load(fen || START); }
+  Position.prototype.load = function (fen) {
+    var parts = fen.trim().split(/\s+/);
+    var rows = parts[0].split('/');
+    if (rows.length !== 8) throw new Error('Bad FEN: ' + fen);
+    this.board = new Array(64).fill('');
+    for (var r = 0; r < 8; r++) {
+      var f = 0;
+      for (var k = 0; k < rows[r].length; k++) {
+        var ch = rows[r][k];
+        if (ch >= '1' && ch <= '8') f += +ch;
+        else { this.board[(7 - r) * 8 + f] = ch; f++; }
+      }
+      if (f !== 8) throw new Error('Bad FEN row: ' + rows[r]);
+    }
+    this.turn = parts[1] || 'w';
+    this.castling = parts[2] && parts[2] !== '-' ? parts[2] : '';
+    this.ep = parts[3] && parts[3] !== '-' ? sqIndex(parts[3]) : -1;
+    this.half = parseInt(parts[4] || '0', 10);
+    this.full = parseInt(parts[5] || '1', 10);
+    this.hist = [];
+    return this;
+  };
+  Position.prototype.clone = function () { return new Position(this.fen()); };
+  Position.prototype.fen = function () {
+    var s = '';
+    for (var r = 7; r >= 0; r--) {
+      var e = 0;
+      for (var f = 0; f < 8; f++) {
+        var p = this.board[r * 8 + f];
+        if (!p) e++; else { if (e) { s += e; e = 0; } s += p; }
+      }
+      if (e) s += e;
+      if (r) s += '/';
+    }
+    return s + ' ' + this.turn + ' ' + (this.castling || '-') + ' ' + (this.ep >= 0 ? sqName(this.ep) : '-') + ' ' + this.half + ' ' + this.full;
+  };
+  Position.prototype.get = function (sq) { return this.board[typeof sq === 'string' ? sqIndex(sq) : sq]; };
+  Position.prototype.kingSq = function (c) {
+    var k = c === 'w' ? 'K' : 'k';
+    for (var i = 0; i < 64; i++) if (this.board[i] === k) return i;
+    return -1;
+  };
+  Position.prototype.attacked = function (sq, by) {
+    var b = this.board, f = sq & 7, r = sq >> 3, i, d, ff, rr, p;
+    var W = by === 'w';
+    // pawns
+    var pr = W ? r - 1 : r + 1, pp = W ? 'P' : 'p';
+    if (on(f - 1, pr) && b[pr * 8 + f - 1] === pp) return true;
+    if (on(f + 1, pr) && b[pr * 8 + f + 1] === pp) return true;
+    var n = W ? 'N' : 'n', kk = W ? 'K' : 'k';
+    for (i = 0; i < 8; i++) {
+      ff = f + KN[i][0]; rr = r + KN[i][1];
+      if (on(ff, rr) && b[rr * 8 + ff] === n) return true;
+      ff = f + KG[i][0]; rr = r + KG[i][1];
+      if (on(ff, rr) && b[rr * 8 + ff] === kk) return true;
+    }
+    var q = W ? 'Q' : 'q', rk = W ? 'R' : 'r', bs = W ? 'B' : 'b';
+    for (i = 0; i < 4; i++) {
+      d = RD[i]; ff = f + d[0]; rr = r + d[1];
+      while (on(ff, rr)) { p = b[rr * 8 + ff]; if (p) { if (p === q || p === rk) return true; break; } ff += d[0]; rr += d[1]; }
+      d = BD[i]; ff = f + d[0]; rr = r + d[1];
+      while (on(ff, rr)) { p = b[rr * 8 + ff]; if (p) { if (p === q || p === bs) return true; break; } ff += d[0]; rr += d[1]; }
+    }
+    return false;
+  };
+  Position.prototype.inCheck = function (c) {
+    c = c || this.turn;
+    var k = this.kingSq(c);
+    return k >= 0 && this.attacked(k, c === 'w' ? 'b' : 'w');
+  };
+  Position.prototype.pseudo = function () {
+    var mv = [], b = this.board, us = this.turn, them = us === 'w' ? 'b' : 'w';
+    var s, p, t, f, r, i, d, ff, rr, to, q;
+    function pawnAdd(from, to, pc, cap) {
+      if ((to >> 3) === 7 || (to >> 3) === 0) {
+        ['q', 'r', 'b', 'n'].forEach(function (pr) { mv.push({ from: from, to: to, piece: pc, captured: cap || '', promotion: pr, flags: cap ? 'cp' : 'p' }); });
+      } else mv.push({ from: from, to: to, piece: pc, captured: cap || '', flags: cap ? 'c' : 'n' });
+    }
+    for (s = 0; s < 64; s++) {
+      p = b[s]; if (!p || colorOf(p) !== us) continue;
+      t = p.toLowerCase(); f = s & 7; r = s >> 3;
+      if (t === 'p') {
+        var dir = us === 'w' ? 1 : -1, r1 = r + dir;
+        if (r1 < 0 || r1 > 7) continue;
+        to = r1 * 8 + f;
+        if (!b[to]) {
+          pawnAdd(s, to, p, '');
+          if (r === (us === 'w' ? 1 : 6) && !b[(r + 2 * dir) * 8 + f]) mv.push({ from: s, to: (r + 2 * dir) * 8 + f, piece: p, captured: '', flags: 'b' });
+        }
+        for (var df = -1; df <= 1; df += 2) {
+          ff = f + df; if (ff < 0 || ff > 7) continue;
+          to = r1 * 8 + ff; q = b[to];
+          if (q && colorOf(q) === them) pawnAdd(s, to, p, q);
+          else if (!q && to === this.ep) mv.push({ from: s, to: to, piece: p, captured: us === 'w' ? 'p' : 'P', flags: 'e' });
+        }
+      } else if (t === 'n' || t === 'k') {
+        var offs = t === 'n' ? KN : KG;
+        for (i = 0; i < 8; i++) {
+          ff = f + offs[i][0]; rr = r + offs[i][1];
+          if (!on(ff, rr)) continue;
+          to = rr * 8 + ff; q = b[to];
+          if (!q) mv.push({ from: s, to: to, piece: p, captured: '', flags: 'n' });
+          else if (colorOf(q) === them) mv.push({ from: s, to: to, piece: p, captured: q, flags: 'c' });
+        }
+      } else {
+        var dirs = t === 'b' ? BD : t === 'r' ? RD : BD.concat(RD);
+        for (i = 0; i < dirs.length; i++) {
+          d = dirs[i]; ff = f + d[0]; rr = r + d[1];
+          while (on(ff, rr)) {
+            to = rr * 8 + ff; q = b[to];
+            if (!q) mv.push({ from: s, to: to, piece: p, captured: '', flags: 'n' });
+            else { if (colorOf(q) === them) mv.push({ from: s, to: to, piece: p, captured: q, flags: 'c' }); break; }
+            ff += d[0]; rr += d[1];
+          }
+        }
+      }
+    }
+    // castling
+    var c = this.castling;
+    if (us === 'w') {
+      if (c.indexOf('K') >= 0 && b[4] === 'K' && b[7] === 'R' && !b[5] && !b[6] && !this.attacked(4, 'b') && !this.attacked(5, 'b') && !this.attacked(6, 'b'))
+        mv.push({ from: 4, to: 6, piece: 'K', captured: '', flags: 'k' });
+      if (c.indexOf('Q') >= 0 && b[4] === 'K' && b[0] === 'R' && !b[1] && !b[2] && !b[3] && !this.attacked(4, 'b') && !this.attacked(3, 'b') && !this.attacked(2, 'b'))
+        mv.push({ from: 4, to: 2, piece: 'K', captured: '', flags: 'q' });
+    } else {
+      if (c.indexOf('k') >= 0 && b[60] === 'k' && b[63] === 'r' && !b[61] && !b[62] && !this.attacked(60, 'w') && !this.attacked(61, 'w') && !this.attacked(62, 'w'))
+        mv.push({ from: 60, to: 62, piece: 'k', captured: '', flags: 'k' });
+      if (c.indexOf('q') >= 0 && b[60] === 'k' && b[56] === 'r' && !b[57] && !b[58] && !b[59] && !this.attacked(60, 'w') && !this.attacked(59, 'w') && !this.attacked(58, 'w'))
+        mv.push({ from: 60, to: 58, piece: 'k', captured: '', flags: 'q' });
+    }
+    return mv;
+  };
+  Position.prototype.make = function (m) {
+    var b = this.board, us = this.turn;
+    var u = { m: m, castling: this.castling, ep: this.ep, half: this.half, full: this.full, cap: b[m.to], epSq: -1 };
+    b[m.to] = m.promotion ? (us === 'w' ? m.promotion.toUpperCase() : m.promotion) : b[m.from];
+    b[m.from] = '';
+    if (m.flags === 'e') { u.epSq = m.to + (us === 'w' ? -8 : 8); b[u.epSq] = ''; }
+    if (m.flags === 'k') { if (us === 'w') { b[5] = b[7]; b[7] = ''; } else { b[61] = b[63]; b[63] = ''; } }
+    if (m.flags === 'q') { if (us === 'w') { b[3] = b[0]; b[0] = ''; } else { b[59] = b[56]; b[56] = ''; } }
+    var c = this.castling;
+    if (m.piece === 'K') c = c.replace('K', '').replace('Q', '');
+    if (m.piece === 'k') c = c.replace('k', '').replace('q', '');
+    [m.from, m.to].forEach(function (sq) {
+      if (sq === 0) c = c.replace('Q', ''); if (sq === 7) c = c.replace('K', '');
+      if (sq === 56) c = c.replace('q', ''); if (sq === 63) c = c.replace('k', '');
+    });
+    this.castling = c;
+    this.ep = m.flags === 'b' ? (m.from + m.to) >> 1 : -1;
+    this.half = (m.piece === 'P' || m.piece === 'p' || u.cap || m.flags === 'e') ? 0 : this.half + 1;
+    if (us === 'b') this.full++;
+    this.turn = us === 'w' ? 'b' : 'w';
+    this.hist.push(u);
+  };
+  Position.prototype.unmake = function () {
+    var u = this.hist.pop(); if (!u) return null;
+    var m = u.m, b = this.board;
+    this.turn = this.turn === 'w' ? 'b' : 'w';
+    var us = this.turn;
+    b[m.from] = m.piece; b[m.to] = u.cap;
+    if (m.flags === 'e') b[u.epSq] = us === 'w' ? 'p' : 'P';
+    if (m.flags === 'k') { if (us === 'w') { b[7] = b[5]; b[5] = ''; } else { b[63] = b[61]; b[61] = ''; } }
+    if (m.flags === 'q') { if (us === 'w') { b[0] = b[3]; b[3] = ''; } else { b[56] = b[59]; b[59] = ''; } }
+    this.castling = u.castling; this.ep = u.ep; this.half = u.half; this.full = u.full;
+    return m;
+  };
+  Position.prototype.moves = function () {
+    var us = this.turn, them = us === 'w' ? 'b' : 'w', out = [], ps = this.pseudo();
+    for (var i = 0; i < ps.length; i++) {
+      this.make(ps[i]);
+      var k = this.kingSq(us);
+      if (k >= 0 && !this.attacked(k, them)) out.push(ps[i]);
+      this.unmake();
+    }
+    return out;
+  };
+  Position.prototype.status = function () {
+    var n = this.moves().length, chk = this.inCheck();
+    if (n === 0) return chk ? 'mate' : 'stalemate';
+    return chk ? 'check' : 'normal';
+  };
+  Position.prototype.san = function (m, legal) {
+    legal = legal || this.moves();
+    var s;
+    if (m.flags === 'k') s = 'O-O';
+    else if (m.flags === 'q') s = 'O-O-O';
+    else {
+      var T = m.piece.toUpperCase();
+      if (T === 'P') {
+        s = (m.captured ? FILES[m.from & 7] + 'x' : '') + sqName(m.to);
+        if (m.promotion) s += '=' + m.promotion.toUpperCase();
+      } else {
+        var others = legal.filter(function (o) { return o.piece === m.piece && o.to === m.to && o.from !== m.from; });
+        var dis = '';
+        if (others.length) {
+          var sameFile = others.some(function (o) { return (o.from & 7) === (m.from & 7); });
+          var sameRank = others.some(function (o) { return (o.from >> 3) === (m.from >> 3); });
+          if (!sameFile) dis = FILES[m.from & 7];
+          else if (!sameRank) dis = String((m.from >> 3) + 1);
+          else dis = sqName(m.from);
+        }
+        s = T + dis + (m.captured ? 'x' : '') + sqName(m.to);
+      }
+    }
+    this.make(m);
+    var st = this.status();
+    this.unmake();
+    if (st === 'mate') s += '#'; else if (st === 'check') s += '+';
+    return s;
+  };
+  function normSan(s) {
+    return String(s).replace(/[+#!?\s]/g, '').replace(/0/g, 'O').replace(/^([a-h][18])([QRBN])$/, '$1=$2').replace(/^([a-h]x[a-h][18])([QRBN])$/, '$1=$2');
+  }
+  Position.prototype.findMove = function (x) {
+    var legal = this.moves(), i;
+    if (typeof x === 'object') {
+      for (i = 0; i < legal.length; i++) {
+        var m = legal[i];
+        if (m.from === x.from && m.to === x.to && (m.promotion || '') === (x.promotion || '')) return m;
+      }
+      return null;
+    }
+    var str = String(x).trim();
+    if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(str)) {
+      return this.findMove({ from: sqIndex(str.slice(0, 2)), to: sqIndex(str.slice(2, 4)), promotion: str[4] || '' });
+    }
+    var want = normSan(str);
+    for (i = 0; i < legal.length; i++) if (normSan(this.san(legal[i], legal)) === want) return legal[i];
+    return null;
+  };
+  Position.prototype.play = function (x) {
+    var m = this.findMove(x);
+    if (!m) return null;
+    var s = this.san(m);
+    this.make(m);
+    return { from: m.from, to: m.to, piece: m.piece, captured: m.captured, promotion: m.promotion || '', flags: m.flags, san: s, uci: sqName(m.from) + sqName(m.to) + (m.promotion || '') };
+  };
+  Position.prototype.perft = function (d) {
+    if (d === 0) return 1;
+    var ms = this.moves(), n = 0;
+    if (d === 1) return ms.length;
+    for (var i = 0; i < ms.length; i++) { this.make(ms[i]); n += this.perft(d - 1); this.unmake(); }
+    return n;
+  };
+  var RU = { K: 'Кр', Q: 'Ф', R: 'Л', B: 'С', N: 'К' };
+  function sanToRu(s) {
+    if (!s) return s;
+    if (s.indexOf('O-O') === 0) return s.replace(/O/g, '0');
+    return s.replace(/^([KQRBN])/, function (a) { return RU[a]; })
+            .replace('x', ':')
+            .replace(/=([QRBN])/, function (a, p) { return RU[p]; });
+  }
+  var api = { Position: Position, sqName: sqName, sqIndex: sqIndex, colorOf: colorOf, sanToRu: sanToRu, START: START };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ChessCore = api;
+})(this);
+
+</script>
+<script>
+window.PIECE_PATHS = {"wK":{"f":"M33.1 14.3Q33.8 14.3 34.9 14.6Q36 14.9 37.3 15.6Q38.6 16.3 39.5 17.8Q40.5 19.4 40.5 21.4Q40.5 23 39.9 24.2Q39.3 25.5 38.5 26.5Q37.7 27.5 36.8 28.7Q36 30 35.3 32.3Q34.6 34.6 34.5 37.8Q34.4 41.8 22.5 41.8Q10.7 41.8 10.5 37.8Q10.3 33.7 9.3 31Q8.3 28.4 7.3 27.4Q6.3 26.5 5.4 25Q4.5 23.5 4.5 21.4Q4.5 19.3 5.5 17.8Q6.4 16.2 7.7 15.5Q9 14.8 10.1 14.5Q11.2 14.3 12 14.3Q14.9 14.3 17.8 16.6Q17.8 13.8 18.4 12.6Q18.9 11.5 21.1 10V8.6L18.6 7.2V5.1H20.8L21.6 2.8H23.4L24.2 5.1H26.4V7.2L23.9 8.6V10Q26.1 11.4 26.6 12.7Q27.2 14 27.2 16.6Q28 15.8 29.6 15Q31.3 14.3 33.1 14.3ZM22.5 21.8Q22.9 21.2 23.5 20.2Q24.2 19.2 24.4 18.8Q24.6 18.4 24.8 17.6Q25 16.8 25 15.7Q25 12.2 22.6 12.2Q20 12.2 20 15.7Q20 16.8 20.2 17.6Q20.4 18.4 20.6 18.8Q20.8 19.2 21.5 20.2Q22.1 21.2 22.5 21.8ZM33.1 16.4Q30.1 16.4 27.1 19.4Q24 22.4 23.6 27.2Q23.6 28.6 34.4 28.6Q34.5 28.5 35.8 26.9Q37 25.4 37.7 24.1Q38.3 22.8 38.3 21.7Q38.3 19.4 36.8 17.9Q35.3 16.4 33.1 16.4ZM33.3 31Q31.6 30.9 29.6 30.7Q27.7 30.6 26.9 30.5Q26.1 30.4 25.1 30.3Q24.2 30.2 23.6 30.1Q23.1 30 22.5 29.7Q21.8 30 20.8 30.2Q19.8 30.4 19 30.5Q18.2 30.6 15.8 30.7Q13.4 30.9 11.7 31Q12.2 33.2 12.4 36Q16.5 34.6 22.5 34.6Q28.6 34.6 32.6 36Q32.8 33 33.3 31ZM11.9 16.4Q9.8 16.4 8.2 17.9Q6.7 19.4 6.7 21.7Q6.7 22.6 7.1 23.6Q7.6 24.6 8.1 25.3Q8.6 26 9.5 27.1Q10.3 28.2 10.6 28.6Q21.4 28.6 21.4 27.2Q21 22.4 18 19.4Q14.9 16.4 11.9 16.4ZM22.6 37Q14.3 37 14.3 38.6Q14.3 39.1 17.1 39.4Q20 39.7 22.5 39.7Q30.7 39.7 30.7 38.6Q30.7 37 22.6 37Z","s":"M33.1 14.3Q33.8 14.3 34.9 14.6Q36 14.9 37.3 15.6Q38.6 16.3 39.5 17.8Q40.5 19.4 40.5 21.4Q40.5 23 39.9 24.2Q39.3 25.5 38.5 26.5Q37.7 27.5 36.8 28.7Q36 30 35.3 32.3Q34.6 34.6 34.5 37.8Q34.4 41.8 22.5 41.8Q10.7 41.8 10.5 37.8Q10.3 33.7 9.3 31Q8.3 28.4 7.3 27.4Q6.3 26.5 5.4 25Q4.5 23.5 4.5 21.4Q4.5 19.3 5.5 17.8Q6.4 16.2 7.7 15.5Q9 14.8 10.1 14.5Q11.2 14.3 12 14.3Q14.9 14.3 17.8 16.6Q17.8 13.8 18.4 12.6Q18.9 11.5 21.1 10V8.6L18.6 7.2V5.1H20.8L21.6 2.8H23.4L24.2 5.1H26.4V7.2L23.9 8.6V10Q26.1 11.4 26.6 12.7Q27.2 14 27.2 16.6Q28 15.8 29.6 15Q31.3 14.3 33.1 14.3Z"},"wQ":{"f":"M22.5 28.5Q25.7 28.5 28.5 28.7Q31.4 28.9 31.8 28.9Q32.5 28.9 32.7 28.8Q32.9 28.7 32.9 28.4Q32.9 27.2 29.3 26.6Q25.6 25.9 22.5 25.9Q19.4 25.9 15.8 26.6Q12.2 27.2 12.2 28.4Q12.2 28.7 12.3 28.8Q12.5 28.9 13.2 28.9Q13.3 28.9 16.8 28.7Q20.3 28.5 22.5 28.5ZM32.1 31.1Q27.5 30.6 22.5 30.6Q17.4 30.6 12.9 31.1Q13.6 31.7 13.6 33.5Q13.6 34.6 13.3 34.8Q16.9 34.2 22.5 34.2Q28.2 34.2 31.8 34.8Q31.4 34.6 31.4 33.5Q31.4 31.7 32.1 31.1ZM32.2 37.9Q32.2 36.2 22.5 36.2Q12.9 36.2 12.9 37.9Q12.9 39.4 22.5 39.4Q32.2 39.4 32.2 37.9ZM22.5 5.2Q21 5.2 21 6.7Q21 8.2 22.5 8.2Q24 8.2 24 6.7Q24 5.2 22.5 5.2ZM20.5 12.5Q20.5 10.5 19.8 8.8Q19.2 7.1 19.2 6.8Q19.2 5.5 20.2 4.5Q21.2 3.5 22.5 3.5Q23.9 3.5 24.8 4.5Q25.8 5.5 25.8 6.8Q25.8 7.1 25.1 8.8Q24.5 10.5 24.5 12.5Q24.5 15.4 25.8 21.1Q29 14.4 29 10.9Q29 10.6 28.8 9.6Q28.6 8.6 28.6 8.4Q28.6 7 29.6 6Q30.5 5.1 31.9 5.1Q33.3 5.1 34.3 6Q35.3 7 35.3 8.4Q35.3 9.5 34.9 10.1Q34.4 10.7 33.9 11Q33.4 11.3 33 12.6Q32.5 13.8 32.5 16Q32.5 17.6 32.8 21Q36.7 17 36.7 14.5Q36.7 14.5 36.6 14Q36.6 13.5 36.5 12.9Q36.4 12.4 36.4 12.2Q36.4 10.9 37.4 9.9Q38.4 8.9 39.7 8.9Q41 8.9 42 9.9Q43 10.9 43 12.2Q43 14.7 40.3 15.9Q40.2 18.3 38.2 26.6Q38.2 27.1 36 29.8Q33.7 32.6 33.7 33.4Q33.7 33.9 34.6 35.7Q35.4 37.4 35.4 38.5V39.4Q35.4 40.8 31.1 41.3Q26.8 41.8 22.5 41.8Q17.7 41.8 13.6 41.3Q9.6 40.7 9.6 39.4V38.5Q9.6 37.3 10.4 35.5Q11.2 33.8 11.2 33.4Q11.2 32.2 9.3 30Q7.4 27.9 6.8 26.6Q4.8 18.4 4.7 15.9Q2 14.7 2 12.2Q2 10.9 3 9.9Q4 8.9 5.3 8.9Q6.6 8.9 7.6 9.9Q8.6 10.9 8.6 12.2Q8.6 12.3 8.4 13.4Q8.3 14.4 8.3 14.5Q8.3 17.2 12.1 21Q12.4 18.4 12.4 16Q12.4 13.9 12 12.6Q11.6 11.3 11 11Q10.5 10.7 10.1 10Q9.7 9.4 9.7 8.4Q9.7 7 10.7 6Q11.7 5.1 13 5.1Q14.4 5.1 15.4 6Q16.4 7 16.4 8.4Q16.4 8.4 16.2 9.5Q16 10.6 16 10.9Q16 14.3 19.2 21.1Q20.5 15.7 20.5 12.5ZM39.7 10.8Q39.1 10.8 38.7 11.2Q38.2 11.6 38.2 12.2Q38.2 12.9 38.7 13.3Q39.1 13.8 39.7 13.8Q41.1 13.8 41.1 12.2Q41.1 10.8 39.7 10.8ZM31.9 7Q31.3 7 30.9 7.5Q30.5 7.9 30.5 8.5Q30.5 9.1 30.9 9.5Q31.3 10 31.9 10Q33.4 10 33.4 8.5Q33.4 7 31.9 7ZM13 7Q11.6 7 11.6 8.5Q11.6 10 13 10Q14.5 10 14.5 8.5Q14.5 7 13 7ZM5.3 10.8Q3.8 10.8 3.8 12.2Q3.8 13.8 5.3 13.8Q6.7 13.8 6.7 12.2Q6.7 11.6 6.3 11.2Q5.8 10.8 5.3 10.8ZM22.5 14.6Q22 17.9 21.3 19.7Q20.7 21.6 20.2 22.4Q19.6 23.1 19.5 23.6Q19.2 23.3 18.5 22.4Q17.8 21.6 17.6 21.3Q17.4 21 16.9 20.3Q16.4 19.5 16.1 18.8Q15.8 18.1 15.4 16.9Q14.9 15.7 14.3 14.2Q14.5 15 14.5 15.9Q14.5 18.7 13.5 24.5Q10.3 22.6 7.2 18.5Q8.7 25.5 9.4 26.3Q9.5 26.5 9.7 26.5Q14.5 23.7 22.5 23.7Q30.6 23.7 35.4 26.5Q36.5 26.2 37.8 18.5Q34.7 22.7 31.6 24.5Q30.6 19.4 30.6 16.4Q30.6 15.6 30.7 14.2Q29.8 16.9 28.9 18.8Q28 20.7 27.4 21.3Q26.9 22 26.3 22.6Q25.8 23.1 25.6 23.6Q25.3 23.1 24.8 22.4Q24.4 21.7 24.3 21.4Q24.2 21.1 23.9 20.3Q23.6 19.4 23.3 18.1Q23 16.9 22.5 14.6Z","s":"M20.5 12.5Q20.5 10.5 19.8 8.8Q19.2 7.1 19.2 6.8Q19.2 5.5 20.2 4.5Q21.2 3.5 22.5 3.5Q23.9 3.5 24.8 4.5Q25.8 5.5 25.8 6.8Q25.8 7.1 25.1 8.8Q24.5 10.5 24.5 12.5Q24.5 15.4 25.8 21.1Q29 14.4 29 10.9Q29 10.6 28.8 9.6Q28.6 8.6 28.6 8.4Q28.6 7 29.6 6Q30.5 5.1 31.9 5.1Q33.3 5.1 34.3 6Q35.3 7 35.3 8.4Q35.3 9.5 34.9 10.1Q34.4 10.7 33.9 11Q33.4 11.3 33 12.6Q32.5 13.8 32.5 16Q32.5 17.6 32.8 21Q36.7 17 36.7 14.5Q36.7 14.5 36.6 14Q36.6 13.5 36.5 12.9Q36.4 12.4 36.4 12.2Q36.4 10.9 37.4 9.9Q38.4 8.9 39.7 8.9Q41 8.9 42 9.9Q43 10.9 43 12.2Q43 14.7 40.3 15.9Q40.2 18.3 38.2 26.6Q38.2 27.1 36 29.8Q33.7 32.6 33.7 33.4Q33.7 33.9 34.6 35.7Q35.4 37.4 35.4 38.5V39.4Q35.4 40.8 31.1 41.3Q26.8 41.8 22.5 41.8Q17.7 41.8 13.6 41.3Q9.6 40.7 9.6 39.4V38.5Q9.6 37.3 10.4 35.5Q11.2 33.8 11.2 33.4Q11.2 32.2 9.3 30Q7.4 27.9 6.8 26.6Q4.8 18.4 4.7 15.9Q2 14.7 2 12.2Q2 10.9 3 9.9Q4 8.9 5.3 8.9Q6.6 8.9 7.6 9.9Q8.6 10.9 8.6 12.2Q8.6 12.3 8.4 13.4Q8.3 14.4 8.3 14.5Q8.3 17.2 12.1 21Q12.4 18.4 12.4 16Q12.4 13.9 12 12.6Q11.6 11.3 11 11Q10.5 10.7 10.1 10Q9.7 9.4 9.7 8.4Q9.7 7 10.7 6Q11.7 5.1 13 5.1Q14.4 5.1 15.4 6Q16.4 7 16.4 8.4Q16.4 8.4 16.2 9.5Q16 10.6 16 10.9Q16 14.3 19.2 21.1Q20.5 15.7 20.5 12.5Z"},"wR":{"f":"M15.7 18.8V29.3H29.3V18.8ZM8.7 41.8 7.6 40.7V36.6L13.7 30.5V18.6L8.4 14.1V8.7L10.2 7H15.5L16.5 8V9.6H18.2V8L19.2 7H25.8L26.8 8V9.6H28.4V8L29.5 7H34.8L36.6 8.7V14.1L31.3 18.6V30.5L37.4 36.6V40.7L36.3 41.8ZM9.7 37.1V39.4H35.3V37.1ZM15.5 31.3 11.6 35.1H33.4L29.5 31.3ZM20.2 9.5V11.1L19.4 11.9H15.5L14.6 11.1V9.4H11.3L10.5 10.2V13.5L14.6 16.8H30.4L34.5 13.5V10.2L33.7 9.4H30.4V11.1L29.5 11.9H25.6L24.8 11.1V9.5Z","s":"M8.7 41.8 7.6 40.7V36.6L13.7 30.5V18.6L8.4 14.1V8.7L10.2 7H15.5L16.5 8V9.6H18.2V8L19.2 7H25.8L26.8 8V9.6H28.4V8L29.5 7H34.8L36.6 8.7V14.1L31.3 18.6V30.5L37.4 36.6V40.7L36.3 41.8Z"},"wB":{"f":"M22.5 25.8Q18.4 25.8 16 25.4Q16.5 26.2 16.5 26.8Q16.5 27.7 16.1 28.3Q17.8 27.8 22.5 27.8Q27.2 27.8 28.9 28.3Q28.5 27.7 28.5 26.8Q28.5 26.1 28.9 25.4Q26.2 25.8 22.5 25.8ZM20.7 6Q20.7 6.8 21.2 7.3Q21.7 7.8 22.5 7.8Q23.3 7.8 23.8 7.3Q24.3 6.8 24.3 6Q24.3 5.3 23.8 4.8Q23.2 4.3 22.5 4.3Q21.8 4.3 21.2 4.8Q20.7 5.4 20.7 6ZM22.5 29.5Q19.6 29.5 18 29.7Q16.5 29.9 16 30.2Q15.5 30.5 15.5 31Q15.5 31.6 16.6 31.7Q17.6 31.9 20 31.9Q20.4 31.9 21.2 31.9Q22 31.9 22.5 31.9Q29.4 31.9 29.4 31Q29.4 30.1 28.1 29.8Q26.7 29.5 22.5 29.5ZM22.4 10.1Q19.8 10.4 16.5 13.2Q13.2 16 13 18.7Q13.3 21.1 13.8 22Q14.2 22.9 16.2 23.5Q18.1 24 22.4 24Q25.1 24 26.8 23.8Q28.5 23.6 29.5 23.3Q30.5 23 31 22.2Q31.5 21.4 31.7 20.8Q31.9 20.2 32 18.7Q31.8 16 28.5 13.2Q25.1 10.4 22.4 10.1ZM21.4 21.1V18.5H19.4V16.2H21.4V13.7H23.6V16.2H25.6V18.5H23.6V21.1ZM22.5 35.4Q23.6 37.4 26.9 38.3Q30.2 39.3 33.9 39.4Q34.1 39.4 35.5 39.6Q37 39.9 37.1 39.9Q38.3 39.9 38.3 38.7Q38.3 37.8 37.1 37.4Q35.9 37 32.1 36.8Q29.5 36.6 27.6 36Q25.7 35.4 25 34.8Q24.2 34.2 23.6 33.7Q22.9 33.2 22.4 33.2Q21.8 33.2 21.2 33.7Q20.6 34.2 19.9 34.9Q19.2 35.5 17.5 36.1Q15.7 36.7 13.3 36.8Q10.6 36.8 9.1 37Q7.6 37.3 7.1 37.7Q6.7 38.1 6.7 38.7Q6.8 39.9 7.9 39.9Q8 39.9 9.4 39.6Q10.9 39.4 11.1 39.4Q14.9 39.4 18.2 38.4Q21.4 37.4 22.5 35.4ZM30.6 26.5Q30.6 27.2 31.2 29Q31.8 30.7 31.8 31.1Q31.8 33.2 27.6 33.7Q30.8 34.8 33.3 34.8Q33.5 34.8 35.1 34.7Q36.6 34.6 36.8 34.6Q39.7 34.6 41.6 38.4Q41.5 38.6 40.8 39.7Q40.2 40.8 39.8 41.2Q39.5 41.6 38.9 42.3Q38.2 42.9 37.6 43.2Q37.3 42.1 34.5 41.8Q31.7 41.5 28 40.8Q24.3 40.2 22.5 38.4Q21 39.9 18.4 40.6Q15.7 41.4 13.5 41.5Q11.2 41.6 9.4 42Q7.6 42.4 7.4 43.2Q6.8 43 6.1 42.2Q5.4 41.4 4.4 40Q3.5 38.6 3.4 38.4Q5.3 34.6 8.2 34.6Q8.3 34.6 9.9 34.7Q11.5 34.8 11.7 34.8Q14.1 34.8 17.4 33.7Q13.2 33.2 13.2 31.1Q13.2 30.8 13.8 28.9Q14.4 27.1 14.4 26.6Q14.4 26.4 13.5 25.5Q12.6 24.5 11.7 22.8Q10.8 21.2 10.8 19.2Q10.8 15.4 14.2 12.3Q17.6 9.2 19.7 9Q18.4 7.4 18.4 5.7Q18.4 4 19.5 3Q20.7 2.1 22.5 2.1Q24.3 2.1 25.4 3.1Q26.6 4.1 26.6 5.7Q26.6 7.6 25.3 9Q27.2 9.3 30.7 12.4Q34.2 15.4 34.2 19.2Q34.2 22.5 30.6 26.5Z","s":"M30.6 26.5Q30.6 27.2 31.2 29Q31.8 30.7 31.8 31.1Q31.8 33.2 27.6 33.7Q30.8 34.8 33.3 34.8Q33.5 34.8 35.1 34.7Q36.6 34.6 36.8 34.6Q39.7 34.6 41.6 38.4Q41.5 38.6 40.8 39.7Q40.2 40.8 39.8 41.2Q39.5 41.6 38.9 42.3Q38.2 42.9 37.6 43.2Q37.3 42.1 34.5 41.8Q31.7 41.5 28 40.8Q24.3 40.2 22.5 38.4Q21 39.9 18.4 40.6Q15.7 41.4 13.5 41.5Q11.2 41.6 9.4 42Q7.6 42.4 7.4 43.2Q6.8 43 6.1 42.2Q5.4 41.4 4.4 40Q3.5 38.6 3.4 38.4Q5.3 34.6 8.2 34.6Q8.3 34.6 9.9 34.7Q11.5 34.8 11.7 34.8Q14.1 34.8 17.4 33.7Q13.2 33.2 13.2 31.1Q13.2 30.8 13.8 28.9Q14.4 27.1 14.4 26.6Q14.4 26.4 13.5 25.5Q12.6 24.5 11.7 22.8Q10.8 21.2 10.8 19.2Q10.8 15.4 14.2 12.3Q17.6 9.2 19.7 9Q18.4 7.4 18.4 5.7Q18.4 4 19.5 3Q20.7 2.1 22.5 2.1Q24.3 2.1 25.4 3.1Q26.6 4.1 26.6 5.7Q26.6 7.6 25.3 9Q27.2 9.3 30.7 12.4Q34.2 15.4 34.2 19.2Q34.2 22.5 30.6 26.5Z"},"wN":{"f":"M9.1 27.8Q9.9 27.8 9.9 29Q9.9 30.4 8.4 30.4Q7.8 30.4 7.8 29.5Q7.8 27.8 9.1 27.8ZM13.3 20.6Q12.5 20.6 12.5 19.6Q12.5 18.5 13.6 17.5Q14.8 16.6 15.9 16.6Q17.3 16.6 17.3 17.4Q17.3 18.5 15.9 19.5Q14.5 20.6 13.3 20.6ZM13.8 9.5Q14.1 10.3 14.1 10.6Q14.1 10.8 13.9 11.5Q14.2 11.5 15.1 11.2Q16.1 10.9 16.5 10.6Q14.9 9.7 13.8 9.5ZM24.2 25.7Q24.2 28.3 22.8 31Q21.3 33.7 19.8 36Q18.2 38.3 18 39.6H37.6Q37.8 36.9 37.8 35.6Q37.8 30.4 36.4 26.1Q34.9 21.7 32.9 19.2Q30.9 16.7 29.2 15.3Q27.5 14 26.4 14H22.9Q22.4 13.7 22 11.8Q21.6 9.9 21 9.5Q20.6 11 19.4 11.6Q18.3 12.3 16.6 12.8Q14.9 13.2 13.9 14Q13.2 16.4 10.1 22.3Q7 28.2 6.8 29.8Q7 30.7 7.9 31.4Q8.8 32.2 9.8 32.2Q10.2 32.2 10.9 31.7Q11.5 31.2 12 31.2Q12.3 31.2 12.3 31.6Q12.3 31.6 12.2 32.1Q12 32.6 12 32.7Q12 33.2 12.8 33.2Q12.9 33.2 14.3 31.1Q16.9 27.1 21.7 25Q22.1 22.7 23.2 20.7Q24.4 18.8 25 18.8Q25.6 18.8 25.6 19.5Q25.6 19.9 24.8 22Q24.1 24.2 24.1 24.9Q24.1 25.1 24.2 25.7ZM25.4 11.5Q26.7 11.5 28.3 12.1Q30 12.8 32.1 14.6Q34.3 16.4 36 19.1Q37.8 21.8 39 26.4Q40.2 31.1 40.2 36.8Q40.2 39.6 40 41.8H15.1Q15.3 39.1 16.3 37Q17.3 34.8 18.4 33.7Q19.5 32.6 20.5 30.9Q21.6 29.2 21.8 27.2Q19.5 28.2 17.9 29.7Q16.2 31.1 15.6 32.3Q14.9 33.5 14.3 34.4Q13.7 35.2 13.1 35.2Q12.1 35.2 11.3 34.8Q10.6 34.3 10.5 33.6Q9.9 33.9 9.3 33.9Q6.5 33.9 4.8 30.3Q5.2 28.1 8.7 20.6Q12.3 13.1 12.3 10.9Q12.3 10.6 11.9 7.6Q15.6 7.6 18.5 9.6Q20.1 6.8 21.2 6.8Q22.6 7.6 23.2 8.5Q23.8 9.5 24.4 11.6Q25 11.5 25.4 11.5Z","s":"M25.4 11.5Q26.7 11.5 28.3 12.1Q30 12.8 32.1 14.6Q34.3 16.4 36 19.1Q37.8 21.8 39 26.4Q40.2 31.1 40.2 36.8Q40.2 39.6 40 41.8H15.1Q15.3 39.1 16.3 37Q17.3 34.8 18.4 33.7Q19.5 32.6 20.5 30.9Q21.6 29.2 21.8 27.2Q19.5 28.2 17.9 29.7Q16.2 31.1 15.6 32.3Q14.9 33.5 14.3 34.4Q13.7 35.2 13.1 35.2Q12.1 35.2 11.3 34.8Q10.6 34.3 10.5 33.6Q9.9 33.9 9.3 33.9Q6.5 33.9 4.8 30.3Q5.2 28.1 8.7 20.6Q12.3 13.1 12.3 10.9Q12.3 10.6 11.9 7.6Q15.6 7.6 18.5 9.6Q20.1 6.8 21.2 6.8Q22.6 7.6 23.2 8.5Q23.8 9.5 24.4 11.6Q25 11.5 25.4 11.5Z"},"wP":{"f":"M20.3 25.6Q20.3 26.3 19.5 27Q18.6 27.7 17.4 28.5Q16.1 29.3 14.9 30.4Q13.6 31.6 12.8 33.9Q11.9 36.2 11.9 39.4H33.1Q33.1 36.8 32.5 34.7Q31.8 32.6 30.9 31.4Q29.9 30.3 28.8 29.3Q27.7 28.4 26.8 27.9Q25.8 27.5 25.2 26.9Q24.6 26.3 24.6 25.6Q24.6 25 25.1 24.7Q25.7 24.3 26.4 24Q27 23.7 27.6 22.9Q28.1 22 28.1 20.7Q28.1 19.3 27.5 18.3Q26.8 17.3 26 16.8Q25.3 16.4 24.6 15.9Q24 15.4 24 15Q24 14.1 24.5 13.1Q25.1 12.1 25.1 11.5Q25.1 10.5 24.3 9.7Q23.5 9 22.4 9Q21.4 9 20.6 9.7Q19.8 10.5 19.8 11.4Q19.8 12 20.4 13Q21 14.1 21 15Q21 15.4 20.3 15.9Q19.7 16.4 18.9 16.9Q18.2 17.3 17.5 18.3Q16.9 19.4 16.9 20.7Q16.9 22 17.8 23Q18.6 24 19.5 24.6Q20.3 25.2 20.3 25.6ZM9.8 41.8Q9.8 41.1 9.8 39.1Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.6Q14.3 16.6 18.4 14.9Q17.4 13.2 17.4 11.5Q17.4 9.5 18.9 8.2Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.1 26.6 14.9Q30.7 16.6 30.7 20.6Q30.7 22.5 29.7 23.9Q28.7 25.4 27.3 25.9Q31.4 28 33.3 31Q35.2 33.9 35.2 39.1Q35.2 41.1 35.2 41.8Z","s":"M9.8 41.8Q9.8 41.1 9.8 39.1Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.6Q14.3 16.6 18.4 14.9Q17.4 13.2 17.4 11.5Q17.4 9.5 18.9 8.2Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.1 26.6 14.9Q30.7 16.6 30.7 20.6Q30.7 22.5 29.7 23.9Q28.7 25.4 27.3 25.9Q31.4 28 33.3 31Q35.2 33.9 35.2 39.1Q35.2 41.1 35.2 41.8Z"},"bK":{"f":"M32.9 16.4Q32.1 16.4 30.7 17Q29.4 17.5 27.8 18.7Q26.3 19.8 25.1 22Q24 24.2 24 27Q24 28.1 22.5 28.1Q20.9 28.1 20.9 27Q20.9 24.1 19.8 21.8Q18.7 19.6 17.1 18.5Q15.5 17.4 14.2 16.9Q12.9 16.4 12 16.4Q9.5 16.4 8.1 17.7Q6.7 19 6.7 21.3Q6.7 22.1 7.6 24.2Q8.5 26.2 10.5 28.2Q12.5 30.3 14.9 30.3Q17.3 30.3 22.4 29.4Q27.6 30.3 29.9 30.3Q31.8 30.3 33.5 29.1Q35.2 27.9 36.1 26.3Q37.1 24.6 37.6 23.2Q38.2 21.8 38.2 21.3Q38.2 19 36.8 17.7Q35.3 16.4 32.9 16.4ZM25.4 27.2Q25.5 25.1 26.1 23.4Q26.7 21.7 27.6 20.7Q28.5 19.6 29.5 19Q30.6 18.3 31.4 18.1Q32.2 17.9 32.8 17.9Q34.6 17.9 35.7 18.8Q36.9 19.7 36.9 21.3Q36.9 21.8 36.4 22.9Q36 24 35.1 25.4Q34.3 26.7 32.7 27.7Q31.1 28.7 29.1 28.7Q25.4 28.7 25.4 27.2ZM31.2 36.4Q31.2 34.8 22.5 34.8Q18.6 34.8 16.2 35.2Q13.7 35.7 13.7 36.3Q13.7 37.2 15.3 37.2Q15.5 37.2 18.8 36.9Q22.1 36.6 22.5 36.6Q22.6 36.6 25.9 36.9Q29.2 37.2 29.6 37.2Q31.2 37.2 31.2 36.4ZM17.7 16.6Q17.7 14 18.3 12.8Q18.8 11.6 21 10.1V8.7L18.6 7.3V5.1H20.8L21.5 2.9H23.5L24.3 5.1H26.4V7.3L24.1 8.7V10.1Q26.1 11.5 26.7 12.7Q27.3 13.9 27.3 16.6Q30.1 14.3 33.1 14.3Q36.2 14.3 38.3 16.3Q40.5 18.3 40.5 21.4Q40.5 23.8 38.2 27Q36.8 29 36.3 29.8Q35.8 30.7 35.2 32.8Q34.6 34.9 34.6 37.8Q34.4 41.8 22.5 41.8Q10.6 41.8 10.4 37.8Q10.4 34.8 9.7 32.4Q9 30.1 8.5 29.3Q7.9 28.4 6.8 26.9Q4.5 23.8 4.5 21.4Q4.5 18.4 6.7 16.4Q8.8 14.3 11.9 14.3Q14.9 14.3 17.7 16.6ZM12 17.9Q12.8 17.9 13.9 18.3Q15 18.8 16.3 19.7Q17.7 20.7 18.6 22.7Q19.4 24.7 19.4 27.3Q19.4 28.7 15.8 28.7Q13.8 28.7 12.2 27.7Q10.6 26.7 9.7 25.3Q8.9 23.9 8.5 22.8Q8.1 21.8 8.1 21.3Q8.1 19.7 9.2 18.8Q10.4 17.9 12 17.9Z","s":"M17.7 16.6Q17.7 14 18.3 12.8Q18.8 11.6 21 10.1V8.7L18.6 7.3V5.1H20.8L21.5 2.9H23.5L24.3 5.1H26.4V7.3L24.1 8.7V10.1Q26.1 11.5 26.7 12.7Q27.3 13.9 27.3 16.6Q30.1 14.3 33.1 14.3Q36.2 14.3 38.3 16.3Q40.5 18.3 40.5 21.4Q40.5 23.8 38.2 27Q36.8 29 36.3 29.8Q35.8 30.7 35.2 32.8Q34.6 34.9 34.6 37.8Q34.4 41.8 22.5 41.8Q10.6 41.8 10.4 37.8Q10.4 34.8 9.7 32.4Q9 30.1 8.5 29.3Q7.9 28.4 6.8 26.9Q4.5 23.8 4.5 21.4Q4.5 18.4 6.7 16.4Q8.8 14.3 11.9 14.3Q14.9 14.3 17.7 16.6Z"},"bQ":{"f":"M22.6 33.8Q18.8 33.8 15.8 34.3Q12.7 34.8 12.7 35.7Q12.7 36.6 14.1 36.6Q14.3 36.6 17.7 36.4Q21.1 36.1 22.6 36.1Q24.2 36.1 27.5 36.4Q30.8 36.6 31 36.6Q32.3 36.6 32.3 35.7Q32.3 33.8 22.6 33.8ZM5.3 10.9Q4.7 10.9 4.3 11.3Q3.8 11.7 3.8 12.4Q3.8 13 4.3 13.4Q4.7 13.8 5.3 13.8Q6.7 13.8 6.7 12.4Q6.7 10.9 5.3 10.9ZM13.1 7.1Q11.5 7.1 11.5 8.6Q11.5 10.1 13.1 10.1Q14.5 10.1 14.5 8.6Q14.5 7.1 13.1 7.1ZM32 7.1Q31.4 7.1 31 7.6Q30.6 8 30.6 8.6Q30.6 10.1 32 10.1Q33.5 10.1 33.5 8.6Q33.5 7.1 32 7.1ZM39.7 10.9Q38.3 10.9 38.3 12.4Q38.3 13.8 39.7 13.8Q41.2 13.8 41.2 12.4Q41.2 11.7 40.7 11.3Q40.3 10.9 39.7 10.9ZM33.8 33.5Q33.8 33.8 34.6 35.7Q35.4 37.7 35.4 39.2Q35.4 40.6 31.4 41.3Q27.3 41.9 22.5 41.9Q17 41.9 13.3 41.1Q9.6 40.4 9.6 39.2Q9.6 37.6 10.4 35.7Q11.2 33.8 11.2 33.5Q11.2 32.5 9 29.9Q6.8 27.3 6.8 26.7Q6.8 26.3 6.3 24.9Q5.9 23.4 5.4 21Q4.8 18.5 4.7 16Q1.9 14.8 1.9 12.4Q1.9 10.9 2.9 10Q3.9 9 5.3 9Q6.6 9 7.6 10Q8.6 11 8.6 12.4Q8.6 12.4 8.5 13.5Q8.3 14.5 8.3 14.6Q8.3 17.3 12.1 21.1Q12.4 18.7 12.4 16Q12.4 13.8 12 12.6Q11.6 11.3 11.1 11.1Q10.5 10.8 10.1 10.2Q9.7 9.6 9.7 8.5Q9.7 7.1 10.7 6.1Q11.7 5.2 13.1 5.2Q14.4 5.2 15.4 6.2Q16.4 7.1 16.4 8.5Q16.4 8.6 16.2 9.7Q16 10.9 16 11.1Q16 14.4 19.2 21.2Q20.5 15.6 20.5 12.7Q20.5 10.5 19.9 8.8Q19.2 7 19.2 6.9Q19.2 5.5 20.2 4.5Q21.2 3.6 22.6 3.6Q23.9 3.6 24.8 4.6Q25.8 5.5 25.8 6.9Q25.8 7.2 25.1 8.9Q24.5 10.5 24.5 12.7Q24.5 15.6 25.8 21.2Q29 14.4 29 11.1Q29 10.8 28.8 9.8Q28.6 8.8 28.6 8.5Q28.6 7.1 29.6 6.1Q30.6 5.2 32 5.2Q33.3 5.2 34.3 6.2Q35.3 7.1 35.3 8.5Q35.3 9.4 35 9.9Q34.8 10.4 34.4 10.8Q33.9 11.1 33.5 11.6Q33.1 12.1 32.8 13.2Q32.6 14.4 32.6 16.1Q32.6 18.7 32.9 21.1Q36.7 17.3 36.7 14.6Q36.7 13.2 36.4 12.4Q36.4 11 37.4 10Q38.3 9 39.7 9Q41.1 9 42.1 10Q43.1 11 43.1 12.4Q43.1 14.7 40.3 16Q40 19.7 39.1 22.9Q38.2 26.1 38.2 26.7Q38.2 27.2 36 29.8Q33.8 32.5 33.8 33.5ZM22.6 5.3Q21.9 5.3 21.5 5.7Q21.1 6.1 21.1 6.8Q21.1 7.4 21.5 7.9Q21.9 8.3 22.6 8.3Q24 8.3 24 6.8Q24 6.2 23.6 5.7Q23.2 5.3 22.6 5.3ZM33.2 28.4Q33.2 27.4 29.7 27Q26.2 26.5 22.6 26.5Q19.1 26.5 15.5 27Q11.8 27.5 11.8 28.5Q11.8 29.3 13.4 29.3Q14.7 29.3 17.8 29.1Q20.8 28.9 22.6 28.9Q24.5 28.9 28 29.1Q31.6 29.3 31.8 29.3Q33.2 29.3 33.2 28.4Z","s":"M33.8 33.5Q33.8 33.8 34.6 35.7Q35.4 37.7 35.4 39.2Q35.4 40.6 31.4 41.3Q27.3 41.9 22.5 41.9Q17 41.9 13.3 41.1Q9.6 40.4 9.6 39.2Q9.6 37.6 10.4 35.7Q11.2 33.8 11.2 33.5Q11.2 32.5 9 29.9Q6.8 27.3 6.8 26.7Q6.8 26.3 6.3 24.9Q5.9 23.4 5.4 21Q4.8 18.5 4.7 16Q1.9 14.8 1.9 12.4Q1.9 10.9 2.9 10Q3.9 9 5.3 9Q6.6 9 7.6 10Q8.6 11 8.6 12.4Q8.6 12.4 8.5 13.5Q8.3 14.5 8.3 14.6Q8.3 17.3 12.1 21.1Q12.4 18.7 12.4 16Q12.4 13.8 12 12.6Q11.6 11.3 11.1 11.1Q10.5 10.8 10.1 10.2Q9.7 9.6 9.7 8.5Q9.7 7.1 10.7 6.1Q11.7 5.2 13.1 5.2Q14.4 5.2 15.4 6.2Q16.4 7.1 16.4 8.5Q16.4 8.6 16.2 9.7Q16 10.9 16 11.1Q16 14.4 19.2 21.2Q20.5 15.6 20.5 12.7Q20.5 10.5 19.9 8.8Q19.2 7 19.2 6.9Q19.2 5.5 20.2 4.5Q21.2 3.6 22.6 3.6Q23.9 3.6 24.8 4.6Q25.8 5.5 25.8 6.9Q25.8 7.2 25.1 8.9Q24.5 10.5 24.5 12.7Q24.5 15.6 25.8 21.2Q29 14.4 29 11.1Q29 10.8 28.8 9.8Q28.6 8.8 28.6 8.5Q28.6 7.1 29.6 6.1Q30.6 5.2 32 5.2Q33.3 5.2 34.3 6.2Q35.3 7.1 35.3 8.5Q35.3 9.4 35 9.9Q34.8 10.4 34.4 10.8Q33.9 11.1 33.5 11.6Q33.1 12.1 32.8 13.2Q32.6 14.4 32.6 16.1Q32.6 18.7 32.9 21.1Q36.7 17.3 36.7 14.6Q36.7 13.2 36.4 12.4Q36.4 11 37.4 10Q38.3 9 39.7 9Q41.1 9 42.1 10Q43.1 11 43.1 12.4Q43.1 14.7 40.3 16Q40 19.7 39.1 22.9Q38.2 26.1 38.2 26.7Q38.2 27.2 36 29.8Q33.8 32.5 33.8 33.5Z"},"bR":{"f":"M8.8 41.8 7.6 40.7V36.5L13.6 30.6V18.8L9 14.2V8.9L10.7 7.3H14.9L15.9 8.3V9.7H18.2V8.3L19.2 7.3H25.8L26.8 8.3V9.7H29.1V8.3L30.1 7.3H34.3L36 8.9V14.2L31.4 18.8V30.6L37.4 36.5V40.7L36.2 41.8ZM15.8 29.2V31.2H29.2V29.2ZM15.8 18.5V20.5H29.2V18.5Z","s":"M8.8 41.8 7.6 40.7V36.5L13.6 30.6V18.8L9 14.2V8.9L10.7 7.3H14.9L15.9 8.3V9.7H18.2V8.3L19.2 7.3H25.8L26.8 8.3V9.7H29.1V8.3L30.1 7.3H34.3L36 8.9V14.2L31.4 18.8V30.6L37.4 36.5V40.7L36.2 41.8Z"},"bB":{"f":"M19.6 28.1Q16.6 28.1 16.6 29.1Q16.6 30.1 22.5 30.1Q28.4 30.1 28.4 29.1Q28.4 28.1 25.4 28.1ZM22.5 26.3Q26.3 26.3 27.4 26.2Q28.4 26 28.4 25.4Q28.4 24.5 25.4 24.5H18.9Q16.6 24.5 16.6 25.4Q16.6 26 17.8 26.2Q18.9 26.3 22.5 26.3ZM14.4 27.3Q14.4 27.2 13.5 26.1Q12.7 24.9 11.7 23.1Q10.8 21.2 10.8 19.5Q10.8 15.6 13.7 12.8Q16.6 10 19.7 9.3Q18.4 7.7 18.4 6Q18.4 4.2 19.5 3.3Q20.7 2.3 22.5 2.3Q24.3 2.3 25.5 3.3Q26.7 4.3 26.7 6Q26.7 7.6 25.3 9.3Q28.7 10.1 31.4 12.7Q34.2 15.4 34.2 19.5Q34.2 22.9 30.6 27Q30.6 27.4 31.2 29.2Q31.7 31 31.8 31.6Q31.8 33.6 27.6 34Q30.7 35.2 33.3 35.2Q36.8 35 36.8 35Q38.6 35 39.7 36Q40.7 36.9 41.7 38.8Q41.5 39 40.7 40.5Q39.8 41.9 39.1 42.6Q38.4 43.3 37.6 43.6Q37.4 42.7 35.6 42.3Q33.8 41.9 31.5 41.8Q29.3 41.8 26.6 41Q24 40.3 22.5 38.8Q20.7 40.7 17 41.3Q13.3 41.9 10.5 42.2Q7.7 42.5 7.4 43.6Q6.6 43.2 5.9 42.5Q5.2 41.8 4.4 40.5Q3.6 39.3 3.3 38.8Q4.2 37 5.3 36Q6.4 35 8.2 35Q11.3 35.2 11.7 35.2Q14.4 35.2 17.4 34Q13.2 33.6 13.2 31.6Q13.2 31.1 13.8 29.5Q14.4 27.8 14.4 27.3ZM23.6 21.5V18.8H25.6V16.5H23.6V14H21.4V16.5H19.4V18.8H21.4V21.5ZM22.5 4.8Q21.8 4.8 21.4 5.2Q21 5.6 21 6.2Q21 6.8 21.4 7.2Q21.8 7.7 22.5 7.7Q24 7.7 24 6.2Q24 4.8 22.5 4.8Z","s":"M14.4 27.3Q14.4 27.2 13.5 26.1Q12.7 24.9 11.7 23.1Q10.8 21.2 10.8 19.5Q10.8 15.6 13.7 12.8Q16.6 10 19.7 9.3Q18.4 7.7 18.4 6Q18.4 4.2 19.5 3.3Q20.7 2.3 22.5 2.3Q24.3 2.3 25.5 3.3Q26.7 4.3 26.7 6Q26.7 7.6 25.3 9.3Q28.7 10.1 31.4 12.7Q34.2 15.4 34.2 19.5Q34.2 22.9 30.6 27Q30.6 27.4 31.2 29.2Q31.7 31 31.8 31.6Q31.8 33.6 27.6 34Q30.7 35.2 33.3 35.2Q36.8 35 36.8 35Q38.6 35 39.7 36Q40.7 36.9 41.7 38.8Q41.5 39 40.7 40.5Q39.8 41.9 39.1 42.6Q38.4 43.3 37.6 43.6Q37.4 42.7 35.6 42.3Q33.8 41.9 31.5 41.8Q29.3 41.8 26.6 41Q24 40.3 22.5 38.8Q20.7 40.7 17 41.3Q13.3 41.9 10.5 42.2Q7.7 42.5 7.4 43.6Q6.6 43.2 5.9 42.5Q5.2 41.8 4.4 40.5Q3.6 39.3 3.3 38.8Q4.2 37 5.3 36Q6.4 35 8.2 35Q11.3 35.2 11.7 35.2Q14.4 35.2 17.4 34Q13.2 33.6 13.2 31.6Q13.2 31.1 13.8 29.5Q14.4 27.8 14.4 27.3Z"},"bN":{"f":"M12.9 20.7Q13.9 20.7 15.4 19.6Q16.9 18.4 16.9 17.5Q16.9 16.7 15.5 16.7Q14.3 16.7 13.2 17.6Q12.1 18.6 12.1 19.6Q12.1 20.7 12.9 20.7ZM4.7 30.4Q5 28.2 8.6 20.7Q12.2 13.2 12.2 10.9Q12.2 9.2 11.9 7.7Q16.5 7.7 18.5 9.7Q20.2 6.9 21.1 6.9Q22.7 7.8 23.2 8.6Q23.7 9.3 24.5 11.7Q25 11.6 25.4 11.6Q26.7 11.6 28.4 12.2Q30.1 12.9 32.2 14.7Q34.3 16.5 36.1 19.2Q37.9 21.9 39.1 26.5Q40.3 31.1 40.3 36.9Q40.3 39.6 40.1 41.8H15.1Q15.1 39.2 16.1 37.1Q17.1 35 18.3 33.8Q19.4 32.6 20.5 30.9Q21.6 29.2 21.8 27.4Q19.6 28.2 17.9 29.7Q16.2 31.2 15.6 32.4Q14.9 33.6 14.3 34.6Q13.7 35.5 13.1 35.5Q11.6 35.5 11.6 33.6Q11 34.4 10.3 34.4Q10.3 34.4 9.1 34.1Q7.2 33.6 6.4 32.9Q5.5 32.2 4.7 30.4ZM8.3 28.5Q7.5 28.5 6.9 29.1Q6.3 29.6 6.3 30.4Q6.3 30.6 6.5 31Q7.3 31 7.9 30.5Q8.4 30 8.4 29.3Q8.4 29.1 8.3 28.5ZM37.4 37.7Q37.4 33.3 36.4 29.3Q35.3 25.3 33.8 22.7Q32.2 20 30.4 18Q28.5 16 26.9 15.1Q25.3 14.2 24.2 14.2Q23.1 14.3 23.1 15Q23.1 15.3 23.2 15.4Q29.1 18.4 32.2 24.5Q35.2 30.7 35.2 37.6Q35.2 39.2 36.3 39.2Q37.4 39.2 37.4 37.7Z","s":"M4.7 30.4Q5 28.2 8.6 20.7Q12.2 13.2 12.2 10.9Q12.2 9.2 11.9 7.7Q16.5 7.7 18.5 9.7Q20.2 6.9 21.1 6.9Q22.7 7.8 23.2 8.6Q23.7 9.3 24.5 11.7Q25 11.6 25.4 11.6Q26.7 11.6 28.4 12.2Q30.1 12.9 32.2 14.7Q34.3 16.5 36.1 19.2Q37.9 21.9 39.1 26.5Q40.3 31.1 40.3 36.9Q40.3 39.6 40.1 41.8H15.1Q15.1 39.2 16.1 37.1Q17.1 35 18.3 33.8Q19.4 32.6 20.5 30.9Q21.6 29.2 21.8 27.4Q19.6 28.2 17.9 29.7Q16.2 31.2 15.6 32.4Q14.9 33.6 14.3 34.6Q13.7 35.5 13.1 35.5Q11.6 35.5 11.6 33.6Q11 34.4 10.3 34.4Q10.3 34.4 9.1 34.1Q7.2 33.6 6.4 32.9Q5.5 32.2 4.7 30.4Z"},"bP":{"f":"M26.6 14.9Q30.7 16.6 30.7 20.5Q30.7 22.4 29.7 23.9Q28.8 25.4 27.3 25.9Q31.4 27.9 33.3 30.9Q35.2 33.9 35.2 39Q35.2 41.1 35.2 41.8H9.8Q9.8 41.1 9.8 39Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.5Q14.3 16.6 18.4 14.9Q17.4 13.1 17.4 11.5Q17.4 9.6 18.9 8.3Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.2 26.6 14.9Z","s":"M26.6 14.9Q30.7 16.6 30.7 20.5Q30.7 22.4 29.7 23.9Q28.8 25.4 27.3 25.9Q31.4 27.9 33.3 30.9Q35.2 33.9 35.2 39Q35.2 41.1 35.2 41.8H9.8Q9.8 41.1 9.8 39Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.5Q14.3 16.6 18.4 14.9Q17.4 13.1 17.4 11.5Q17.4 9.6 18.9 8.3Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.2 26.6 14.9Z"}};
+window.DAR_PGN = "[Event \"Дар данайцев · Греко, около 1620\"]\n[Site \"Онлайн-урок\"]\n[Result \"1-0\"]\n[ChapterName \"Греко, около 1620\"]\n[Orientation \"white\"]\n[White \"Греко\"]\n[Black \"NN\"]\n\n{ Первый записанный греческий дар. } 1. e4 e6 2. d4 Nf6 3. Bd3 Nc6 4. Nf3 Be7 5. h4 O-O 6. e5 Nd5 7. Bxh7+ { Дар! } 7... Kxh7 8. Ng5+ Kg8 9. Qh5 Bxg5 10. hxg5 f5 11. g6 { Чёрные сдались: от мата по линии h не защититься. } 1-0\n\n[Event \"Дар данайцев · Детали коня\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Детали коня\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7\"]\n\n{ Слон d3 (дар), конь f3 (Ng5+), ферзь d1 (Qh5), пешка e5 (выгнала коня с f6), слон c1 (защищает g5). }  *\n\n[Event \"Дар данайцев · Три дороги 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Три дороги 1\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7\"]\n\n{ Ход белых. Принесите дар! Чёрные примут жертву, а король отступит на g8. } 7. Bxh7+ Kxh7 8. Ng5+ Kg8 9. Qh5 Qxg5 10. Bxg5 f6 { Чёрные отдали ферзя за коня и слона: у белых решающий перевес (+3,4). } *\n\n[Event \"Дар данайцев · Три дороги 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Три дороги 2\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1r2/pppn1pp1/4p2k/3pP1N1/1b1P4/2N5/PPP2PPP/R1BQK2R w KQ - 2 9\"]\n\n{ 7.Сxh7+ Крxh7 8.Кg5+ Крh6. Король пошёл навстречу. Накажите его. } 9. Nxe6+ Kh7 10. Nxd8 Rxd8 { Вскрытый шах с вилкой: белые выиграли ферзя (+5,2). } *\n\n[Event \"Дар данайцев · Три дороги 3\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Три дороги 3\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1r2/pppn1pp1/4p1k1/3pP1N1/1b1P4/2N5/PPP2PPP/R1BQK2R w KQ - 2 9\"]\n\n{ 7.Сxh7+ Крxh7 8.Кg5+ Крg6 — самая упорная защита. Как добраться до короля? } 9. h4 Nxe5 10. dxe5 Bxc3+ 11. bxc3 f5 12. h5+ Kh6 13. Nxe6+ Kh7 { Вскрытый шах: дальше Кxd8 — ферзь падает, и перевес белых решающий (+8). } *\n\n[Event \"Дар данайцев · Загадка Сфинкса\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Загадка Сфинкса\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppnbppp/4p3/3pP3/3P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7\"]\n\n{ Какую чёрную фигуру убрать, чтобы Bxh7+ стал сильнейшим? Ответ: слон e7 — сторож поля g5. }  *\n\n[Event \"Дар данайцев · Оракул 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 1\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/ppp2ppp/4pn2/3p4/1b1P4/2NBPN2/PPP2PPP/R1BQK2R w KQ - 0 7\"]\n\n{ Сработает ли Bxh7+? } 7. Bxh7+ Nxh7 { Ловушка. Конь f6 охраняет h7: после Сxh7+ Кxh7 белые просто без слона. } *\n\n[Event \"Дар данайцев · Оракул 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 2\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQ1RK1 w - - 5 7\"]\n\n{ Сработает ли Bxh7+? } 7. Bxh7+ Kxh7 8. Ng5+ Kg8 9. Qh5 Qxg5 10. Qxg5 { Троя падёт. Все детали на месте: Кg5+ и Фh5. Чтобы спастись от мата, чёрные отдают ферзя. } *\n\n[Event \"Дар данайцев · Оракул 3\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 3\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/1PNB1N2/PBP2PPP/R2QK2R w KQ - 1 8\"]\n\n{ Сработает ли Bxh7+? } 8. Bxh7+ Kxh7 9. Ng5+ Qxg5 { Ловушка. Слон ушёл с c1 на b2 — поле g5 никто не защищает: Кg5+ Фxg5! } *\n\n[Event \"Дар данайцев · Оракул 4\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 4\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppnbppp/4p3/3pP3/3P3P/2NB1N2/PPP2PP1/R1BQK2R w KQ - 0 7\"]\n\n{ Сработает ли Bxh7+? } 7. Bxh7+ Kxh7 8. Ng5+ Bxg5 9. hxg5+ Kg8 10. Qh5 { Троя падёт. Слон e7 бьёт g5, но пешка h4 отвечает hxg5+ — и линия h открыта для ладьи. Мат! } *\n\n[Event \"Дар данайцев · Оракул 5\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 5\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbqr1k1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7\"]\n\n{ Сработает ли Bxh7+? } 7. Bxh7+ Kxh7 8. Ng5+ Kg8 9. Qh5 Nf8 { Ловушка. Ладья ушла с f8 — и конь d7 успевает на f8, закрывая h7. Белым остаётся лишь вечный шах. } *\n\n[Event \"Дар данайцев · Оракул 6\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оракул 6\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB4/PPP1NPPP/R1BQK2R w KQ - 5 7\"]\n\n{ Сработает ли Bxh7+? } 7. Bxh7+ Kxh7 8. Qd3+ Kg8 { Ловушка. Конь стоит на e2 — до g5 ему не допрыгнуть. Шах ферзём ничего не даёт. } *\n\n[Event \"Дар данайцев · Ответный дар 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Ответный дар 1\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"r1bqk2r/ppp2pp1/2nb1n2/3p3p/3Pp3/4P3/PPPNBPPP/RNBQ1RK1 b kq - 0 7\"]\n\n{ Ход чёрных — теперь дарите вы. Слон e2 сторожит g4, зато пешка h5 готова открыть линию h. } 7... Bxh2+ 8. Kxh2 Ng4+ 9. Kg1 Qh4 10. Bxg4 hxg4 11. f4 g3 12. Qh5 Qxh5 13. Nc3 Qh2# { Мат на h2 — та же идея, что у Греко около 1620 года. } *\n\n[Event \"Дар данайцев · Ответный дар 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Ответный дар 2\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"r1bqk2r/ppp2pp1/2n5/3p3p/3Pp1n1/4P2K/PPPNBPP1/RNBQ1R2 b kq - 2 9\"]\n\n{ 7…Сxh2+ 8.Крxh2 Кg4+ 9.Крh3. Король пошёл навстречу. Как выиграть ферзя? } 9... Nxe3+ 10. Kh2 Nxd1 11. Bxd1 { Вскрытый шах с вилкой — тот же приём, что во второй дороге, только в зеркале. } *\n\n[Event \"Дар данайцев · Мастерская: конь на h3\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мастерская: конь на h3\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB3N/PPP2PPP/R1BQK2R w KQ - 0 9\"]\n\n{ Рабочие сборки: Bd3 Nf3 Qd1, Bd3 Nf3 Qe2, Bd3 Nh3 Qd1, Bd3 Nh3 Qe2, Bc2 Nh3 Qd1, Bc2 Nh3 Qe2. } 9. Bxh7+ Kxh7 10. Qh5+ Kg8 11. Ng5 Qxg5 *\n\n[Event \"Дар данайцев · Оборона 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оборона 1\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"rnbqr1k1/pppn1ppB/4p3/3pP3/1b1P4/2N2N2/PPP2PPP/R1BQK2R b KQ - 0 7\"]\n\n{ Белые сыграли 7.Сxh7+. Вы — чёрные. Найдите три точных хода — и Троя устоит. } 7... Kxh7 8. Ng5+ Kg8 9. Qh5 Bxc3+ 10. bxc3 { Конь встанет на f8 и закроет h7: белым остаётся только вечный шах. Ничья! } *\n\n[Event \"Дар данайцев · Оборона 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Оборона 2\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"rnbq1rk1/pppnbppB/4p3/3pP3/3P4/2N2N2/PPP2PPP/R1BQK2R b KQ - 0 7\"]\n\n{ Белые сыграли 7.Сxh7+. Вы — чёрные. Накажите белых за поспешность. } 7... Kxh7 8. Ng5+ Bxg5 9. Qh5+ Bh6 10. O-O { Атака отбита: у чёрных лишняя фигура. } *\n\n[Event \"Дар данайцев · Колле — О'Ханлон, 1930\"]\n[Site \"Онлайн-урок\"]\n[Result \"1-0\"]\n[ChapterName \"Колле — О'Ханлон, 1930\"]\n[Orientation \"white\"]\n[White \"Колле\"]\n[Black \"О'Ханлон\"]\n\n{ Ницца, 1930. } 1. d4 d5 2. Nf3 Nf6 3. e3 c5 4. c3 e6 5. Bd3 Bd6 6. Nbd2 Nbd7 7. O-O O-O 8. Re1 Re8 9. e4 dxe4 10. Nxe4 Nxe4 11. Bxe4 cxd4 12. Bxh7+ { Дар! } 12... Kxh7 13. Ng5+ Kg6 14. h4 { Тихий ход: h5+ на подходе. } 14... Rh8 15. Rxe6+ Nf6 16. h5+ Kh6 17. Rxd6 Qa5 18. Nxf7+ Kh7 19. Ng5+ Kg8 20. Qb3+ { Чёрные сдались. } 1-0\n";
+window.DAR = {"base":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","basePre":["e4","e6","d4","d5","Nc3","Nf6","e5","Nfd7","Nf3","Bb4","Bd3","O-O"],"roads":[{"title":"Дорога первая","task":"Ход белых. Принесите дар! Чёрные примут жертву, а король отступит на g8.","preFen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","pre":[],"nodes":[{"m":"d3h7","alts":[],"eq":[],"refs":{"a1b1":"c7c5","c1d2":"c7c5","c1e3":"c7c5","c1f4":"b8c6","c1g5":"f7f6","c1h6":"g7h6","d1d2":"c7c5","d1e2":"c7c5","e1f1":"b8c6","e1e2":"c7c5","e1d2":"b4e7","h1g1":"b8c6","h1f1":"b8c6","a2a3":"b4e7","a2a4":"c7c5","b2b3":"b4c3","g2g3":"c7c5","g2g4":"c7c5","h2h3":"c7c5","h2h4":"c7c5","d3c4":"d5c4","d3b5":"c7c5","d3a6":"b7a6","d3e4":"d5e4","d3f5":"b4c3","d3g6":"h7g6","d3e2":"c7c5","d3f1":"c7c5","f3g5":"h7h6","f3h4":"d8h4","f3g1":"c7c5","f3d2":"c7c5","e1g1":"b8c6"},"r":"Kxh7"},{"m":"f3g5","alts":[],"eq":[],"refs":{"a1b1":"h7g8","c1d2":"h7g8","c1e3":"h7g8","c1f4":"h7g8","c1g5":"f7f6","c1h6":"b4c3","d1d2":"h7g8","d1d3":"h7g8","d1e2":"h7g8","e1f1":"b8c6","e1e2":"b8c6","e1d2":"b8c6","h1g1":"b8c6","h1f1":"b8c6","a2a3":"b4e7","a2a4":"h7g8","b2b3":"b4c3","g2g3":"h7g8","g2g4":"b8c6","h2h3":"h7g8","h2h4":"h7g8","f3h4":"d8h4","f3g1":"c7c5","f3d2":"c7c5","e1g1":"b8c6"},"r":"Kg8"},{"m":"d1h5","alts":[],"eq":[],"refs":{"a1b1":"b8c6","c1d2":"b4c3","c1e3":"b4e7","c1f4":"b4e7","d1d2":"c7c5","d1d3":"g7g6","d1e2":"b4e7","d1f3":"f7f6","d1g4":"b4e7","e1f1":"g7g6","e1e2":"b4e7","e1d2":"d8g5","h1g1":"g7g6","h1f1":"b4c3","a2a3":"b4c3","a2a4":"b4e7","b2b3":"b4c3","f2f3":"b4e7","f2f4":"b4c3","g2g3":"b4e7","g2g4":"b4e7","h2h3":"b4c3","h2h4":"g7g6","g5h7":"g8h7","g5f7":"f8f7","g5e6":"f7e6","g5f3":"c7c5","g5h3":"c7c5","g5e4":"d5e4","e1g1":"g7g6"},"r":"Qxg5"},{"m":"c1g5","alts":["h5g5"],"eq":["h5g5"],"refs":{"a1b1":"g5h5","c1d2":"g5h5","c1e3":"g5h5","c1f4":"g5h5","e1f1":"g5h5","e1d1":"g5h5","e1e2":"g5h5","h1g1":"g5h5","h1f1":"g5h5","a2a3":"b4c3","a2a4":"g5h5","b2b3":"b4c3","f2f3":"g5h5","f2f4":"g5h5","g2g3":"g5h5","g2g4":"g5h5","h2h3":"g5h5","h2h4":"g5h5","h5h6":"g5g2","h5h7":"g8h7","h5h8":"g8h8","h5h4":"g5h4","h5h3":"g5g6","h5g6":"g5g6","h5f7":"f8f7","h5g4":"g5g4","h5f3":"g5g6","h5e2":"g5g2","h5d1":"g5g2","e1g1":"g5h5"},"r":"f6"}],"steps":["Дар принесён — чёрные берут.","Конь с шахом! Король уходит на g8.","Угроза Фh7#. Спасает только 9…Фxg5.","Ферзь чёрных пал."],"done":"Чёрные отдали ферзя за коня и слона: у белых решающий перевес (+3,4)."},{"title":"Дорога вторая","task":"7.Сxh7+ Крxh7 8.Кg5+ Крh6. Король пошёл навстречу. Накажите его.","preFen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","pre":["Bxh7+","Kxh7","Ng5+","Kh6"],"nodes":[{"m":"g5e6","alts":["d1d3","d1f3","d1g4","h2h3","h2h4","g5f7"],"eq":["g5f7"],"refs":{"a1b1":"d8g5","c1d2":"h6g6","c1e3":"d8g5","c1f4":"d8g5","d1d2":"d8e7","d1e2":"d8g5","d1h5":"h6h5","e1f1":"d8g5","e1e2":"d8g5","e1d2":"h6g5","h1g1":"d8g5","h1f1":"d8g5","a2a3":"b4c3","a2a4":"d8g5","b2b3":"b4c3","f2f3":"h6h5","f2f4":"d8e8","g2g3":"d8g5","g2g4":"d8g5","g5h7":"h6h7","g5f3":"h6g6","g5h3":"g7g5","g5e4":"g7g5","e1g1":"d8g5"},"r":"Kh7"},{"m":"e6d8","alts":["d1d3","d1h5"],"eq":[],"refs":{"a1b1":"f7e6","c1d2":"f7e6","c1e3":"f7e6","c1f4":"f7e6","c1g5":"f7e6","c1h6":"f7e6","d1d2":"f7e6","d1e2":"f7e6","d1f3":"f7e6","d1g4":"f7e6","e1f1":"f7e6","e1e2":"f7e6","e1d2":"f7e6","h1g1":"f7e6","h1f1":"f7e6","a2a3":"b4c3","a2a4":"f7e6","b2b3":"f7e6","f2f3":"f7e6","f2f4":"f7e6","g2g3":"f7e6","g2g4":"f7e6","h2h3":"f7e6","h2h4":"f7e6","e6f8":"d7f8","e6g7":"b4c3","e6c7":"d8c7","e6f4":"d7b6","e6c5":"d7c5","e6g5":"h7g8","e1g1":"f7e6"},"r":"Rxd8"}],"steps":["Вскрытый шах слоном c1 — и ферзь d8 под ударом!","Ферзь взят."],"done":"Вскрытый шах с вилкой: белые выиграли ферзя (+5,2)."},{"title":"Дорога третья","task":"7.Сxh7+ Крxh7 8.Кg5+ Крg6 — самая упорная защита. Как добраться до короля?","preFen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","pre":["Bxh7+","Kxh7","Ng5+","Kg6"],"nodes":[{"m":"h2h4","alts":["d1g4","d1d3"],"eq":[],"refs":{"a1b1":"b4c3","c1d2":"b8c6","c1e3":"f8e8","c1f4":"b4c3","d1d2":"f8e8","d1e2":"b4c3","d1f3":"d7f6","d1h5":"g6h5","e1f1":"d8e8","e1e2":"d8e8","e1d2":"d8g5","h1g1":"b4c3","h1f1":"b4c3","a2a3":"b4c3","a2a4":"f8e8","b2b3":"b4c3","f2f3":"f8e8","f2f4":"b4c3","g2g3":"b4c3","g2g4":"b4c3","h2h3":"b4c3","g5h7":"g6h7","g5f7":"g6f7","g5e6":"f7e6","g5f3":"g6h7","g5h3":"g6h7","g5e4":"d5e4","e1g1":"d8e8"},"r":"Nxe5"},{"m":"d4e5","alts":[],"eq":[],"refs":{"a1b1":"e5c4","c1d2":"e5c6","c1e3":"e5c4","c1f4":"e5c4","d1d2":"b4c3","d1d3":"e5d3","d1e2":"e5c4","d1f3":"e5f3","d1g4":"e5g4","d1h5":"g6h5","e1f1":"b4c3","e1e2":"b4c3","e1d2":"f7f6","h1g1":"e5c4","h1f1":"e5c4","h1h2":"e5c4","h1h3":"e5c4","a2a3":"b4c3","a2a4":"e5c4","b2b3":"b4c3","f2f3":"e5c4","f2f4":"e5c4","g2g3":"e5c4","g2g4":"e5c4","h4h5":"g6f6","g5h7":"g6h7","g5f7":"e5f7","g5e6":"c8e6","g5f3":"e5f3","g5h3":"e5c4","g5e4":"d5e4","e1g1":"b4c3"},"r":"Bxc3+"},{"m":"b2c3","alts":[],"eq":[],"refs":{"c1d2":"c3e5","d1d2":"c3d2","e1f1":"c3e5","e1e2":"c3e5"},"r":"f5"},{"m":"h4h5","alts":["a1b1","c1d2","c1e3","c1f4","d1d2","d1d3","d1d4","d1e2","d1f3","e1f1","e1e2","h1g1","h1f1","h1h2","h1h3","a2a3","a2a4","g2g3","g2g4","c3c4"],"eq":[],"refs":{"c1b2":"b8c6","c1a3":"f8h8","d1d5":"d8d5","d1g4":"f5g4","d1h5":"g6h5","e1d2":"b8c6","f2f3":"f8h8","f2f4":"b8c6","e5f6":"g7f6","g5h7":"g6h7","g5f7":"g6f7","g5e6":"c8e6","g5f3":"b8c6","g5h3":"d8e7","g5e4":"d5e4","e1g1":"f8h8"},"r":"Kh6","many":1},{"m":"g5e6","alts":["c1f4","d1d3","h1h4","g2g3","g5f7"],"eq":[],"refs":{"a1b1":"f5f4","c1b2":"d8g5","c1a3":"h6g5","c1d2":"f5f4","c1e3":"f5f4","d1d2":"f5f4","d1d4":"f5f4","d1d5":"d8d5","d1e2":"f5f4","d1f3":"f5f4","d1g4":"f5g4","e1f1":"f5f4","e1e2":"f5f4","e1d2":"d8g5","h1g1":"f5f4","h1f1":"f5f4","h1h2":"f5f4","h1h3":"f5f4","a2a3":"f5f4","a2a4":"f5f4","f2f3":"f5f4","f2f4":"d8e8","g2g4":"f5f4","c3c4":"f5f4","g5h7":"h6h7","g5f3":"h6h7","g5h3":"h6h7","g5e4":"h6h7","e1g1":"f5f4"},"r":"Kh7"}],"steps":["Тихий ход: угроза h5+ с матовой сетью.","Конь взят.","И слон взят.","Пешка гонит короля.","Вскрытый шах слоном c1 — ферзь d8 падает."],"done":"Вскрытый шах: дальше Кxd8 — ферзь падает, и перевес белых решающий (+8)."}],"mirror":[{"title":"Зеркало Греко","task":"Ход чёрных — теперь дарите вы. Слон e2 сторожит g4, зато пешка h5 готова открыть линию h.","preFen":"r1bqk2r/ppp2pp1/2nb1n2/3p3p/3Pp3/4P3/PPPNBPPP/RNBQ1RK1 b kq - 0 7","pre":[],"nodes":[{"m":"d6h2","alts":[],"eq":[],"refs":{"h5h4":"c2c4","c6b8":"c2c4","c6e7":"c2c4","c6b4":"c2c4","c6d4":"e3d4","c6a5":"b1c3","c6e5":"d4e5","d6e7":"c2c4","d6f8":"c2c4","d6e5":"d4e5","d6f4":"e3f4","d6g3":"h2g3","d6c5":"d4c5","d6b4":"c2c4","d6a3":"b1a3","f6g8":"c2c4","f6h7":"c2c4","f6d7":"b1c3","f6g4":"h2h3","a7a6":"c2c4","a7a5":"b1c3","b7b6":"b1c3","b7b5":"e2b5","g7g6":"c2c4","g7g5":"c2c4","a8b8":"c2c4","c8d7":"b1c3","c8e6":"b1c3","c8f5":"b1c3","c8g4":"c2c4","c8h3":"g2h3","d8d7":"b1c3","d8e7":"c2c4","e8f8":"c2c4","e8e7":"b1c3","e8d7":"c2c4","h8g8":"c2c4","h8f8":"c2c4","h8h7":"b1c3","h8h6":"b1c3","e8g8":"e2h5"},"r":"Kxh2"},{"m":"f6g4","alts":[],"eq":[],"refs":{"h5h4":"b1c3","c6b8":"c2c4","c6e7":"h2g1","c6b4":"a2a3","c6d4":"e3d4","c6a5":"h2g1","c6e5":"d4e5","f6g8":"c2c4","f6h7":"f1h1","f6d7":"b1c3","a7a6":"h2g1","a7a5":"b1c3","b7b6":"h2g1","b7b5":"e2b5","g7g6":"b1c3","g7g5":"b1c3","a8b8":"b1c3","c8d7":"b1c3","c8e6":"h2g1","c8f5":"h2g1","c8g4":"h2g1","c8h3":"g2h3","d8d7":"h2g1","d8d6":"h2g1","d8e7":"b1c3","e8f8":"b1c3","e8e7":"h2g1","e8d7":"h2g1","h8g8":"h2g1","h8f8":"h2g1","h8h7":"b1c3","h8h6":"b1c3","e8g8":"e2h5"},"r":"Kg1"},{"m":"d8h4","alts":[],"eq":[],"refs":{"g4h6":"e2h5","g4f6":"c2c4","g4e5":"d4e5","g4f2":"f1f2","g4h2":"g1h2","g4e3":"f2e3","h5h4":"e2g4","c6b8":"b1c3","c6e7":"b1c3","c6b4":"b1c3","c6d4":"e2g4","c6a5":"c2c4","c6e5":"d4e5","a7a6":"g2g3","a7a5":"g2g3","b7b6":"e2b5","b7b5":"e2b5","f7f6":"c2c4","f7f5":"b1c3","g7g6":"g2g3","g7g5":"b1c3","a8b8":"b1c3","c8d7":"g2g3","c8e6":"b1c3","c8f5":"g2g3","d8d7":"b1c3","d8d6":"g2g3","d8e7":"g2g3","d8f6":"g2g3","d8g5":"b1a3","e8f8":"b1c3","e8e7":"b1c3","e8d7":"e2g4","h8g8":"b1c3","h8f8":"b1c3","h8h7":"g2g3","h8h6":"b1c3","e8g8":"g2g3"},"r":"Bxg4"},{"m":"h5g4","alts":[],"eq":[],"refs":{"h4g4":"f2f3","h4h3":"g4h3","h4h2":"g1h2","h4h1":"g1h1","h4g5":"g4c8","h4f6":"g4e2","h4e7":"g4c8","h4d8":"g4c8","h4g3":"f2g3","h4f2":"f1f2","c6d8":"g4c8","c6b8":"g4c8","c6e7":"g4e2","c6b4":"g4c8","c6d4":"g4c8","c6a5":"g4e2","c6e5":"g4c8","a7a6":"g4c8","a7a5":"g4c8","b7b6":"g4c8","b7b5":"g4c8","f7f6":"g4c8","f7f5":"g4e2","g7g6":"g4c8","g7g5":"g4c8","a8b8":"g4e2","c8d7":"g4d7","c8e6":"g4e6","c8f5":"g4f5","c8g4":"f2f3","e8f8":"g4c8","e8d8":"g4c8","e8e7":"g4e2","h8g8":"g4c8","h8f8":"g4c8","h8h7":"g4c8","h8h6":"g4c8","e8g8":"g4h5"},"r":"f4"},{"m":"g4g3","alts":["c6d8","c6b8","c6e7","c6b4","c6d4","c6a5","c6e5","a7a6","a7a5","b7b6","b7b5","f7f6","f7f5","g7g6","g7g5","a8b8","c8d7","c8e6","c8f5","e8f8","e8d8","e8e7","e8d7","h8h7","h8h6","h8h5"],"eq":[],"refs":{"e4f3":"d2f3","g4f3":"d2f3","h4h5":"b1c3","h4h6":"g1f2","h4h7":"g1f2","h4h3":"g2h3","h4h2":"g1f2","h4h1":"g1f2","h4g5":"f4g5","h4f6":"b1c3","h4e7":"d1e1","h4d8":"d2b3","h4g3":"d2b3","h4f2":"g1f2","h4e1":"f1e1","h8g8":"f1e1","h8f8":"f1e1","e8g8":"f1e1"},"r":"Qh5","many":1},{"m":"h4h5","alts":["c6d4","h8h5"],"eq":["h8h5"],"refs":{"h4g4":"h5h8","h4f4":"h5h8","h4h3":"h5h3","h4h2":"h5h2","h4h1":"h5h1","h4g5":"h5h8","h4f6":"h5h8","h4e7":"h5h8","h4d8":"h5h8","c6d8":"h5h4","c6b8":"h5h4","c6e7":"h5h4","c6b4":"h5h4","c6a5":"h5h4","c6e5":"h5h4","a7a6":"h5h4","a7a5":"h5h4","b7b6":"h5h4","b7b5":"h5h4","g7g6":"h5h4","g7g5":"h5h4","a8b8":"h5h4","c8d7":"h5h4","c8e6":"h5h4","c8f5":"h5h4","c8g4":"h5h4","c8h3":"h5h4","e8f8":"h5h4","e8d8":"h5h4","e8e7":"h5h4","e8d7":"h5h4","h8g8":"h5h4","h8f8":"h5h4","h8h7":"h5h4","h8h6":"h5h4","e8g8":"h5h4"},"r":"Nc3"},{"m":"h5h2","alts":["h5f5","h5h6","h5h7","h5h4","h5h1","h5g6","h5g4","c6d8","c6b8","c6e7","c6b4","c6d4","c6a5","c6e5","a7a6","a7a5","b7b6","b7b5","f7f6","f7f5","g7g6","g7g5","a8b8","c8d7","c8e6","c8f5","c8g4","c8h3","e8f8","e8d8","e8e7","e8d7","h8g8","h8f8","h8h7","h8h6","e8g8"],"eq":[],"refs":{"h5g5":"f4g5","h5e5":"f4e5","h5h3":"g2h3","h5f3":"g2f3","h5e2":"c3e2","h5d1":"c3d1"},"end":"mate","many":1}],"steps":["Дар! Белые берут.","Конь с шахом, король отступает на g1.","Ферзь на h4: угроза мата на h2.","Пешка берёт слона — линия h открыта для ладьи h8!","Пешка g3 замыкает сеть: угроза Фh2#.","Белые закрылись ферзём — забираем его.","Мат!"],"done":"Мат на h2 — та же идея, что у Греко около 1620 года.","seal":"МАТ"},{"title":"Король идёт вперёд","task":"7…Сxh2+ 8.Крxh2 Кg4+ 9.Крh3. Король пошёл навстречу. Как выиграть ферзя?","preFen":"r1bqk2r/ppp2pp1/2nb1n2/3p3p/3Pp3/4P3/PPPNBPPP/RNBQ1RK1 b kq - 0 7","pre":["Bxh2+","Kxh2","Ng4+","Kh3"],"nodes":[{"m":"g4e3","alts":["g4h6","g4e5","g4f2","c6b8","c6e7","c6b4","c6d4","c6a5","c6e5","a7a6","a7a5","b7b6","b7b5","f7f6","g7g6","g7g5","a8b8","c8d7","c8e6","c8f5","d8d7","d8e7","d8f6","d8g5","e8f8","e8e7","h8g8","h8f8","h8h7","h8h6","e8g8","d8d6"],"eq":["d8d6"],"refs":{"g4f6":"h3g3","g4h2":"h3h2","h5h4":"e2g4","f7f5":"g2g3","d8h4":"h3h4","e8d7":"g2g3"},"r":"Kh2","many":1},{"m":"e3d1","alts":["e3g4","d8d6","d8h4"],"eq":["d8d6","d8h4"],"refs":{"e3f5":"d2b3","e3c4":"d2c4","e3f1":"d2f1","e3c2":"d1c2","e3g2":"d2e4","h5h4":"f2e3","c6b8":"f2e3","c6e7":"f2e3","c6b4":"f2e3","c6d4":"f2e3","c6a5":"f2e3","c6e5":"f2e3","a7a6":"f2e3","a7a5":"f2e3","b7b6":"f2e3","b7b5":"f2e3","f7f6":"f2e3","f7f5":"f2e3","g7g6":"f2e3","g7g5":"f2e3","a8b8":"f2e3","c8d7":"f2e3","c8e6":"f2e3","c8f5":"f2e3","c8g4":"f2e3","c8h3":"f2e3","d8d7":"f2e3","d8e7":"f2e3","d8f6":"f2e3","d8g5":"f2e3","e8f8":"f2e3","e8e7":"f2e3","e8d7":"f2e3","h8g8":"f2e3","h8f8":"f2e3","h8h7":"f2e3","h8h6":"f2e3","e8g8":"f2e3"},"r":"Bxd1"}],"steps":["Вскрытый шах слоном c8 — и конь бьёт ферзя d1!","Ферзь белых взят."],"done":"Вскрытый шах с вилкой — тот же приём, что во второй дороге, только в зеркале.","seal":"ФЕРЗЬ ВЗЯТ"}],"defend":[{"title":"Ладья на e8","task":"Белые сыграли 7.Сxh7+. Вы — чёрные. Найдите три точных хода — и Троя устоит.","preFen":"rnbqr1k1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","pre":["Bxh7+"],"nodes":[{"m":"g8h7","alts":[],"eq":[],"refs":{"g8h8":"f3g5","g8f8":"e1g1"},"r":"Ng5+"},{"m":"h7g8","alts":[],"eq":[],"refs":{"h7h8":"d1h5","h7h6":"g5f7","h7g6":"d1d3","d8g5":"c1g5"},"r":"Qh5"},{"m":"b4c3","alts":["d7f8"],"eq":["d7f8"],"refs":{"b4a5":"h5f7","b4c5":"h5f7","b4d6":"h5f7","b4e7":"h5h7","b4f8":"h5h7","b4a3":"h5f7","a7a6":"h5f7","a7a5":"h5f7","b7b6":"h5f7","b7b5":"h5f7","c7c6":"h5f7","c7c5":"h5f7","d7c5":"h5f7","d7e5":"d4e5","d7b6":"h5f7","d7f6":"h5f7","f7f6":"h5h7","f7f5":"h5h7","g7g6":"h5h7","b8a6":"h5f7","b8c6":"h5f7","d8e7":"h5h7","d8f6":"e5f6","d8g5":"h5g5","e8f8":"h5h7","e8e7":"h5h7","g8f8":"h5f7"},"r":"bxc3"}],"steps":["Дар принят.","Только Крg8! На Крg6 и Крh6 белые атакуют.","Размен с темпом — дальше …Кf8 закроет h7."],"done":"Конь встанет на f8 и закроет h7: белым остаётся только вечный шах. Ничья!","seal":"ТРОЯ УСТОЯЛА"},{"title":"Слон на e7","task":"Белые сыграли 7.Сxh7+. Вы — чёрные. Накажите белых за поспешность.","preFen":"rnbq1rk1/pppnbppp/4p3/3pP3/3P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","pre":["Bxh7+"],"nodes":[{"m":"g8h7","alts":[],"eq":[],"refs":{"g8h8":"h7d3"},"r":"Ng5+"},{"m":"e7g5","alts":["h7g8"],"eq":[],"refs":{"h7h8":"d1h5","h7h6":"g5e6","h7g6":"d1d3"},"r":"Qh5+"},{"m":"g5h6","alts":["h7g8"],"eq":[],"refs":{},"r":"O-O"}],"steps":["Дар принят.","Слон e7 бьёт g5 — атака теряет коня.","Сh6! закрывает линию h."],"done":"Атака отбита: у чёрных лишняя фигура.","seal":"ТРОЯ УСТОЯЛА"}],"sphinx":{"fen":"rnbq1rk1/pppnbppp/4p3/3pP3/3P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","answer":"e7","table":{"d5":{"best":"O-O","bestS":"+1.70","gift":-51},"e6":{"best":"Nxd5","bestS":"+2.84","gift":57},"a7":{"best":"O-O","bestS":"+1.25","gift":-81},"b7":{"best":"O-O","bestS":"+1.28","gift":-91},"c7":{"best":"O-O","bestS":"+1.60","gift":-76},"d7":{"best":"O-O","bestS":"+3.64","gift":143},"e7":{"best":"Bxh7+","bestS":"+6.71","gift":671},"f7":{"best":"O-O","bestS":"+1.56","gift":-55},"g7":{"best":"Qd2","bestS":"+2.07","gift":19},"h7":{"best":"O-O","bestS":"+1.46","gift":null},"a8":{"best":"O-O","bestS":"+5.14","gift":308},"b8":{"best":"O-O","bestS":"+3.53","gift":135},"c8":{"best":"O-O","bestS":"+3.67","gift":166},"d8":{"best":"Nb5","bestS":"+9.21","gift":710},"f8":{"best":"O-O","bestS":"+5.14","gift":322}}},"oracle":[{"id":"nf6","fen":"rnbq1rk1/ppp2ppp/4pn2/3p4/1b1P4/2NBPN2/PPP2PPP/R1BQK2R w KQ - 0 7","works":false,"demo":["Bxh7+","Nxh7"],"why":"Ловушка. Конь f6 охраняет h7: после Сxh7+ Кxh7 белые просто без слона. <span style=\"opacity:.7\">(оценка движка: −2,15)<\/span>"},{"id":"x2","fen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQ1RK1 w - - 5 7","works":true,"demo":["Bxh7+","Kxh7","Ng5+","Kg8","Qh5","Qxg5","Qxg5"],"why":"Троя падёт. Все детали на месте: Кg5+ и Фh5. Чтобы спастись от мата, чёрные отдают ферзя. <span style=\"opacity:.7\">(оценка движка: +3,49)<\/span>"},{"id":"b2","fen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/1PNB1N2/PBP2PPP/R2QK2R w KQ - 1 8","works":false,"demo":["Bxh7+","Kxh7","Ng5+","Qxg5"],"why":"Ловушка. Слон ушёл с c1 на b2 — поле g5 никто не защищает: Кg5+ Фxg5! <span style=\"opacity:.7\">(оценка движка: −5,00)<\/span>"},{"id":"be7h4","fen":"rnbq1rk1/pppnbppp/4p3/3pP3/3P3P/2NB1N2/PPP2PP1/R1BQK2R w KQ - 0 7","works":true,"demo":["Bxh7+","Kxh7","Ng5+","Bxg5","hxg5+","Kg8","Qh5"],"why":"Троя падёт. Слон e7 бьёт g5, но пешка h4 отвечает hxg5+ — и линия h открыта для ладьи. Мат! <span style=\"opacity:.7\">(оценка движка: мат в 3)<\/span>"},{"id":"re8","fen":"rnbqr1k1/pppn1ppp/4p3/3pP3/1b1P4/2NB1N2/PPP2PPP/R1BQK2R w KQ - 5 7","works":false,"demo":["Bxh7+","Kxh7","Ng5+","Kg8","Qh5","Nf8"],"why":"Ловушка. Ладья ушла с f8 — и конь d7 успевает на f8, закрывая h7. Белым остаётся лишь вечный шах. <span style=\"opacity:.7\">(оценка движка: +0,00)<\/span>"},{"id":"noNf3","fen":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2NB4/PPP1NPPP/R1BQK2R w KQ - 5 7","works":false,"demo":["Bxh7+","Kxh7","Qd3+","Kg8"],"why":"Ловушка. Конь стоит на e2 — до g5 ему не допрыгнуть. Шах ферзём ничего не даёт. <span style=\"opacity:.7\">(оценка движка: −1,76)<\/span>"}],"build":{"pre":"rnbq1rk1/pppn1ppp/4p3/3pP3/1b1P4/2N5/PPP2PPP/R1B1K2R w KQ - 0 9","cand":{"B":["d3","c2","e2"],"N":["f3","h3","e2","d2"],"Q":["d1","e2","d2","c2"]},"table":{"d3f3d1":{"gift":253,"pv":["Bxh7+","Kh8","Ng5","g6","Bxg6","fxg6","Nxe6","Qh4"]},"d3f3e2":{"gift":219,"pv":["Bxh7+","Kh8","Ng5","g6","Bxg6","fxg6","Nxe6","Qh4"]},"d3f3d2":{"gift":38,"pv":["Bxh7+","Kxh7","Ng5+","Kg8","Qd3","Bxc3+","bxc3","Re8"]},"d3f3c2":{"gift":52,"pv":["Bxh7+","Kh8","Bg5","Be7","Bxe7","Qxe7","Bd3","c5"]},"d3h3d1":{"gift":330,"pv":["Bxh7+","Kxh7","Qh5+","Kg8","Ng5","Qxg5","Bxg5","c5"]},"d3h3e2":{"gift":327,"pv":["Bxh7+","Kxh7","Qh5+","Kg8","Ng5","Qxg5","Bxg5","Nc6"]},"d3h3d2":{"gift":38,"pv":["Bxh7+","Kxh7","Ng5+","Kg8","Qd3","Re8","Qh7+","Kf8"]},"d3h3c2":{"gift":121,"pv":["Bxh7+","Kh8","Ng5","Nc6","Qd3","Ncxe5","dxe5","Nxe5"]},"d3e2d1":{"gift":-183,"pv":["Bxh7+","Kxh7","Qd3+","Kg8","Qg3","f6","O-O","Nc6"]},"d3e2d2":{"gift":-170,"pv":["Bxh7+","Kxh7","a3","Ba5","b4","Bb6","b5","f6"]},"d3e2c2":{"gift":0,"pv":["Bxh7+","Kh8","O-O","c5","Nb5","g6","Bxg6","fxg6"]},"d3d2d1":{"gift":-174,"pv":["Bxh7+","Kxh7","O-O","Kg8","Nf3","Nc6","Bg5","Qe8"]},"d3d2e2":{"gift":-171,"pv":["Bxh7+","Kxh7","a3","Be7","O-O","Kg8","Nf3","Nc6"]},"d3d2c2":{"gift":11,"pv":["Bxh7+","Kh8","Bd3","c5","a3","cxd4","axb4","dxc3"]},"c2f3d1":{"gift":144,"pv":["Bxh7+","Kh8","Ng5","Bxc3+","bxc3","g6","Bxg6","fxg6"]},"c2f3e2":{"gift":103,"pv":["Bxh7+","Kh8","Bc2","Be7","O-O","Nc6","Qd3","f5"]},"c2f3d2":{"gift":-70,"pv":["Bxh7+","Kxh7","Ng5+","Kg8","Qc2","Re8","Qh7+","Kf8"]},"c2h3d1":{"gift":221,"pv":["Bxh7+","Kxh7","Qh5+","Kg8","Ng5","Qxg5","Bxg5","c5"]},"c2h3e2":{"gift":221,"pv":["Bxh7+","Kxh7","Qh5+","Kg8","Ng5","Qxg5","Bxg5","c5"]},"c2h3d2":{"gift":-68,"pv":["Bxh7+","Kxh7","Ng5+","Kg8","Qc2","Nf6","exf6","g6"]},"c2e2d1":{"gift":-291,"pv":["Bxh7+","Kxh7","a3","Be7","O-O","Nc6","Be3","Kg8"]},"c2e2d2":{"gift":-286,"pv":["Bxh7+","Kxh7","O-O","Nc6","a3","Be7","Qc2+","Kg8"]},"c2d2d1":{"gift":-286,"pv":["Bxh7+","Kxh7","O-O","Kg8","Nf3","Nc6","Bg5","f6"]},"c2d2e2":{"gift":-283,"pv":["Bxh7+","Kxh7","a3","Ba5","Nb3","Bxc3+","bxc3","Kg8"]},"e2f3d1":{"gift":null,"pv":[]},"e2f3d2":{"gift":null,"pv":[]},"e2f3c2":{"gift":null,"pv":[]},"e2h3d1":{"gift":null,"pv":[]},"e2h3d2":{"gift":null,"pv":[]},"e2h3c2":{"gift":null,"pv":[]},"e2d2d1":{"gift":null,"pv":[]},"e2d2c2":{"gift":null,"pv":[]}},"good":6},"colle":{"moves":["d4","d5","Nf3","Nf6","e3","c5","c3","e6","Bd3","Bd6","Nbd2","Nbd7","O-O","O-O","Re1","Re8","e4","dxe4","Nxe4","Nxe4","Bxe4","cxd4","Bxh7+","Kxh7","Ng5+","Kg6","h4","Rh8","Rxe6+","Nf6","h5+","Kh6","Rxd6","Qa5","Nxf7+","Kh7","Ng5+","Kg8","Qb3+"],"stops":[{"ply":22,"note":"дар! Детали на месте: конь f3, ферзь d1, ладья e1."},{"ply":24,"note":"конь с шахом. Король выбирает g6 — самую упорную дорогу."},{"ply":26,"note":"тихий ход: пешка идёт на h5 с шахом."},{"ply":28,"note":"ладья врывается с шахом по линии e."},{"ply":30,"note":"пешка гонит короля дальше."},{"ply":32,"note":"белые возвращают фигуру — а атака продолжается."},{"ply":34,"note":"конь берёт f7 с шахом и вернётся на g5."},{"ply":38,"note":"ферзь врывается по диагонали b3–g8."}],"finText":"После 20.Фb3+ мат неизбежен: например, 20…Кd5 21.Лxd5 Крf8 22.Лxa5 и Фf7+. Колле собрал коня целиком: слон, конь, пешка h, ладья и ферзь."}};
+
+</script>
+<script>
+(() => {
+'use strict';
+const { Position, sqName, sqIndex, sanToRu } = window.ChessCore;
+const D = window.DAR;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const NS = 'dar-danaitsev:';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(NS + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(NS + k, JSON.stringify(v)); } catch (e) { /* storage unavailable: state lives in memory */ } }
+};
+const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ru = san => sanToRu(san);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const TEAM_COLORS = ['var(--t0)', 'var(--t1)', 'var(--t2)', 'var(--t3)'];
+const PIECE_RU = { K: 'Кр', Q: 'Ф', R: 'Л', B: 'С', N: 'К', P: '' };
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : (m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c); };
+const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+function seeded(seed) { let x = seed || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+function shuffle(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const uciOf = m => sqName(m.from) + sqName(m.to) + (m.promotion || '');
+
+/* ---------- pieces sprite ---------- */
+(function buildSprite() {
+  const P = window.PIECE_PATHS;
+  let s = '<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">';
+  Object.keys(P).forEach(k => {
+    const light = k[0] === 'w' ? '#fffaf0' : '#f1e2c4';
+    s += `<symbol id="pc-${k}" viewBox="0 0 45 45"><path d="${P[k].s}" fill="${light}"/><path d="${P[k].f}" fill="#1d1611"/></symbol>`;
+  });
+  document.body.insertAdjacentHTML('afterbegin', s + '</svg>');
+})();
+function pieceSvg(letter, cls) {
+  const id = (letter === letter.toUpperCase() ? 'w' : 'b') + letter.toUpperCase();
+  return `<svg class="${cls || ''}" viewBox="0 0 45 45" aria-hidden="true"><use href="#pc-${id}"></use></svg>`;
+}
+
+/* ---------- sound ---------- */
+const prefs = { sound: store.get('sound', true) };
+const Sound = (() => {
+  let ctx = null;
+  const ac = () => {
+    if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+  function tone(freq, dur, o = {}) {
+    if (!prefs.sound) return;
+    const a = ac(); if (!a) return;
+    const t = a.currentTime + (o.when || 0);
+    const osc = a.createOscillator(), g = a.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (o.slide) osc.frequency.exponentialRampToValueAtTime(freq * o.slide, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.gain || 0.06, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(a.destination);
+    osc.start(t); osc.stop(t + dur + 0.03);
+  }
+  return {
+    move() { tone(430, 0.07, { type: 'triangle', gain: 0.08, slide: 0.7 }); },
+    capture() { tone(250, 0.12, { type: 'triangle', gain: 0.1, slide: 0.55 }); tone(620, 0.04, { type: 'square', gain: 0.015 }); },
+    ok() { [523, 659, 784].forEach((f, i) => tone(f, 0.2, { gain: 0.07, when: i * 0.08 })); },
+    fanfare() { [392, 523, 659, 784].forEach((f, i) => tone(f, 0.22, { type: 'triangle', gain: 0.08, when: i * 0.1 })); tone(1046, 0.6, { type: 'triangle', gain: 0.08, when: 0.42 }); tone(784, 0.6, { gain: 0.05, when: 0.42 }); },
+    bad() { tone(165, 0.22, { type: 'square', gain: 0.03, slide: 0.75 }); },
+    reveal() { tone(880, 0.09, { type: 'triangle', gain: 0.05, slide: 1.3 }); },
+    meow() { tone(620, 0.5, { type: 'triangle', gain: 0.07, slide: 1.6 }); tone(990, 0.35, { type: 'triangle', gain: 0.05, slide: 0.6, when: 0.28 }); },
+    gavel() { [0, 0.18, 0.36].forEach(w => tone(140, 0.12, { type: 'square', gain: 0.05, slide: 0.5, when: w })); },
+    buzz() { tone(110, 0.7, { type: 'sawtooth', gain: 0.04 }); },
+    tick() { tone(1250, 0.03, { type: 'square', gain: 0.012 }); }
+  };
+})();
+
+/* ---------- confetti ---------- */
+const Confetti = (() => {
+  const cv = $('#confetti'); let ctx = null, parts = [], raf = 0;
+  function tick() {
+    const W = cv.width, H = cv.height, k = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, W, H);
+    parts.forEach(p => {
+      p.vy += 0.3 * k; p.vx *= 0.99; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life++;
+      ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c;
+      ctx.fillRect(-p.s / 2, -p.s / 4, p.s, p.s / 2); ctx.restore();
+    });
+    parts = parts.filter(p => p.y < H + 40 && p.life < 280);
+    if (parts.length) raf = requestAnimationFrame(tick); else { raf = 0; ctx.clearRect(0, 0, W, H); }
+  }
+  return {
+    burst(power = 1) {
+      if (reduceMotion) return;
+      const k = window.devicePixelRatio || 1;
+      if (!raf) { cv.width = window.innerWidth * k; cv.height = window.innerHeight * k; }
+      ctx = ctx || cv.getContext('2d');
+      const colors = ['#c4682f', '#1d1611', '#e8cf9f', '#6f8a35', '#d9a441', '#275b78'];
+      const n = Math.round(160 * power);
+      for (let i = 0; i < n; i++) {
+        parts.push({ x: cv.width * (0.25 + Math.random() * 0.5), y: cv.height * 0.35,
+          vx: (Math.random() - 0.5) * 16 * k, vy: (-Math.random() * 13 - 4) * k,
+          s: (5 + Math.random() * 7) * k, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.3,
+          c: colors[i % colors.length], life: 0 });
+      }
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+  };
+})();
+
+/* ---------- small helpers ---------- */
+function feedback(el, type, html) {
+  if (!type) { el.innerHTML = ''; el.removeAttribute('data-type'); return; }
+  el.dataset.type = type;
+  const mark = { ok: '✓', bad: '×', warn: '!', info: 'i' }[type];
+  el.innerHTML = `<span class="fb-mark" aria-hidden="true">${mark}</span><div class="fb-body">${html}</div>`;
+  if (type === 'bad' && !reduceMotion) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+}
+function flash(frame, kind) {
+  if (reduceMotion || !frame) return;
+  const c = kind === 'ok' ? 'flash-ok' : 'flash-bad';
+  frame.classList.remove(c); void frame.offsetWidth; frame.classList.add(c);
+}
+function twoStep(btn, armedLabel, action) {
+  const idle = btn.textContent; let armed = 0;
+  const disarm = () => { clearTimeout(armed); armed = 0; btn.textContent = idle; btn.classList.remove('armed'); };
+  btn.addEventListener('click', () => {
+    if (armed) { disarm(); action(); return; }
+    btn.textContent = armedLabel; btn.classList.add('armed');
+    armed = setTimeout(disarm, 3500);
+  });
+}
+function fenFromBoard(bd, turn) {
+  let out = '';
+  for (let r = 7; r >= 0; r--) { let e = 0; for (let f = 0; f < 8; f++) { const x = bd[r * 8 + f]; if (!x) e++; else { if (e) { out += e; e = 0; } out += x; } } if (e) out += e; if (r) out += '/'; }
+  return out + ' ' + (turn || 'w') + ' - - 0 1';
+}
+function moveListHtml(startFen, sans) {
+  if (!sans.length) return '';
+  const p = new Position(startFen); let n = p.full, t = p.turn, out = [];
+  sans.forEach((s, i) => {
+    if (t === 'w') out.push(`<span><span class="num">${n}.</span> ${esc(ru(s))}</span>`);
+    else out.push(`<span>${i === 0 ? `<span class="num">${n}…</span> ` : ''}${esc(ru(s))}</span>`);
+    if (t === 'b') n++;
+    t = t === 'w' ? 'b' : 'w';
+  });
+  return out.join('');
+}
+
+
+
+/* ---------- board ---------- */
+function arrowPath(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const sw = 0.09, hw = 0.27, hl = 0.38;
+  const sx = x1 + ux * 0.2, sy = y1 + uy * 0.2, bx = x2 - ux * hl, by = y2 - uy * hl;
+  const pts = [[sx + px * sw, sy + py * sw], [bx + px * sw, by + py * sw], [bx + px * hw, by + py * hw], [x2, y2],
+    [bx - px * hw, by - py * hw], [bx - px * sw, by - py * sw], [sx - px * sw, sy - py * sw]];
+  return 'M' + pts.map(p => p[0].toFixed(3) + ' ' + p[1].toFixed(3)).join('L') + 'Z';
+}
+class Board {
+  constructor(el, orient) {
+    this.el = el; this.orient = orient || 'w';
+    this.onMove = null; this.canMove = () => false;
+    this.pos = null; this.last = null; this.sel = -1; this.targets = [];
+    this.marks = {}; this.arrows = []; this.drag = null; this.skipAnim = false; this.promoOpen = false; this.popNew = false;
+    this.build();
+    el.addEventListener('pointerdown', e => this.down(e));
+    window.addEventListener('pointermove', e => this.moveP(e));
+    window.addEventListener('pointerup', e => this.up(e));
+    window.addEventListener('pointercancel', () => this.cancelDrag());
+  }
+  idxAt(row, col) { return this.orient === 'w' ? (7 - row) * 8 + col : row * 8 + (7 - col); }
+  rc(i) { const f = i & 7, r = i >> 3; return this.orient === 'w' ? { row: 7 - r, col: f } : { row: r, col: 7 - f }; }
+  build() {
+    this.el.innerHTML = '';
+    this.sqEls = new Array(64);
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const i = this.idxAt(row, col);
+        const d = document.createElement('div');
+        d.className = 'sq ' + ((((i >> 3) + (i & 7)) % 2) ? 'l' : 'd');
+        d.dataset.sq = sqName(i);
+        if (col === 0) { const s = document.createElement('span'); s.className = 'co co-r'; s.textContent = String((i >> 3) + 1); d.appendChild(s); }
+        if (row === 7) { const s = document.createElement('span'); s.className = 'co co-f'; s.textContent = 'abcdefgh'[i & 7]; d.appendChild(s); }
+        this.sqEls[i] = d; this.el.appendChild(d);
+      }
+    }
+    this.ov = document.createElementNS(SVGNS, 'svg');
+    this.ov.setAttribute('class', 'ov'); this.ov.setAttribute('viewBox', '0 0 8 8'); this.ov.setAttribute('aria-hidden', 'true');
+    this.el.appendChild(this.ov);
+    this.cur = new Array(64).fill(null);
+  }
+  setOrient(o) { if (o && o !== this.orient) { this.orient = o; this.build(); if (this.pos) this.render(); } }
+  pieceEl(p) {
+    const s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('class', 'pc'); s.setAttribute('viewBox', '0 0 45 45');
+    const u = document.createElementNS(SVGNS, 'use');
+    u.setAttribute('href', '#pc-' + (p === p.toUpperCase() ? 'w' : 'b') + p.toUpperCase());
+    s.appendChild(u);
+    return s;
+  }
+  set(pos, opts = {}) {
+    this.pos = pos;
+    this.last = 'last' in opts ? opts.last : null;
+    this.sel = -1; this.targets = [];
+    if (!opts.keepMarks) { this.marks = {}; this.arrows = []; }
+    this.popNew = !!opts.pop;
+    const anim = opts.anim && !this.skipAnim && !reduceMotion ? opts.anim : null;
+    this.skipAnim = false;
+    this.render(anim);
+    this.popNew = false;
+  }
+  render(anim) {
+    const b = this.pos ? this.pos.board : [];
+    let chk = -1;
+    if (this.pos) { const k = this.pos.kingSq(this.pos.turn); if (k >= 0 && this.pos.inCheck()) chk = k; }
+    for (let i = 0; i < 64; i++) {
+      const el = this.sqEls[i], p = b[i] || '';
+      if (this.cur[i] !== p) {
+        const old = el.querySelector('.pc'); if (old) old.remove();
+        if (p) { const pe = this.pieceEl(p); if (this.popNew && !reduceMotion) pe.classList.add('pop'); el.appendChild(pe); }
+        this.cur[i] = p;
+      }
+      const isT = this.targets.indexOf(i) >= 0;
+      el.classList.toggle('last', !!this.last && (i === this.last.from || i === this.last.to));
+      el.classList.toggle('sel', i === this.sel);
+      el.classList.toggle('dot', isT && !p);
+      el.classList.toggle('cap', isT && !!p);
+      el.classList.toggle('check', i === chk);
+      el.dataset.mark = this.marks[sqName(i)] || '';
+    }
+    if (anim) this.animate(anim);
+    this.drawOverlay();
+  }
+  animate(m) {
+    const size = this.el.clientWidth / 8;
+    if (!size) return;
+    const one = (from, to) => {
+      const pe = this.sqEls[to].querySelector('.pc'); if (!pe) return;
+      const a = this.rc(from), c = this.rc(to);
+      pe.classList.remove('anim');
+      pe.style.transform = `translate(${(a.col - c.col) * size}px, ${(a.row - c.row) * size}px)`;
+      void pe.getBoundingClientRect();
+      pe.classList.add('anim'); pe.style.transform = '';
+      setTimeout(() => pe.classList.remove('anim'), 260);
+    };
+    one(m.from, m.to);
+    if (m.flags === 'k') one(m.to + 1, m.to - 1);
+    if (m.flags === 'q') one(m.to - 2, m.to + 1);
+  }
+  drawOverlay() {
+    const ctr = i => { const q = this.rc(i); return [q.col + 0.5, q.row + 0.5]; };
+    const layers = this.layers ? this.layers(this) : '';
+    this.ov.innerHTML = layers + this.arrows.map(ar => {
+      const p1 = ctr(ar.from), p2 = ctr(ar.to);
+      return `<path d="${arrowPath(p1[0], p1[1], p2[0], p2[1])}" style="fill:${ar.color || 'var(--arrow)'}"/>`;
+    }).join('');
+  }
+  sqAt(x, y) {
+    const r = this.el.getBoundingClientRect();
+    if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return -1;
+    const col = Math.min(7, Math.floor((x - r.left) / (r.width / 8)));
+    const row = Math.min(7, Math.floor((y - r.top) / (r.height / 8)));
+    return this.idxAt(row, col);
+  }
+  mine(i) {
+    const p = this.pos && this.pos.board[i];
+    return !!p && this.canMove() && ((p === p.toUpperCase()) === (this.pos.turn === 'w'));
+  }
+  select(i) {
+    this.sel = i;
+    this.targets = i >= 0 ? this.pos.moves().filter(m => m.from === i).map(m => m.to) : [];
+    this.render();
+  }
+  down(e) {
+    if ((e.button && e.button !== 0) || this.promoOpen || !this.pos || !this.canMove()) return;
+    const i = this.sqAt(e.clientX, e.clientY); if (i < 0) return;
+    if (this.sel >= 0 && this.targets.indexOf(i) >= 0) { e.preventDefault(); this.tryMove(this.sel, i, false); return; }
+    if (this.mine(i)) {
+      e.preventDefault();
+      if (this.sel !== i) this.select(i);
+      this.drag = { from: i, x: e.clientX, y: e.clientY, on: false };
+    } else if (this.sel >= 0) this.select(-1);
+  }
+  moveP(e) {
+    const d = this.drag; if (!d) return;
+    if (!d.on) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+      d.on = true;
+      const size = this.el.clientWidth / 8;
+      const g = this.pieceEl(this.pos.board[d.from]);
+      g.setAttribute('class', 'drag-ghost'); g.style.width = size + 'px'; g.style.height = size + 'px';
+      document.body.appendChild(g); d.ghost = g;
+      const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.add('lift');
+    }
+    d.ghost.style.left = e.clientX + 'px'; d.ghost.style.top = e.clientY + 'px';
+  }
+  up(e) {
+    const d = this.drag; if (!d) return;
+    this.drag = null;
+    if (!d.on) return;
+    d.ghost.remove();
+    const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.remove('lift');
+    const to = this.sqAt(e.clientX, e.clientY);
+    if (to >= 0 && to !== d.from && this.targets.indexOf(to) >= 0 && this.canMove()) this.tryMove(d.from, to, true);
+    else if (to !== d.from) this.select(-1);
+  }
+  cancelDrag() {
+    const d = this.drag; if (!d) return;
+    this.drag = null; if (d.ghost) d.ghost.remove();
+    const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.remove('lift');
+  }
+  tryMove(from, to, dragged) {
+    const cands = this.pos.moves().filter(m => m.from === from && m.to === to);
+    if (!cands.length) return;
+    this.sel = -1; this.targets = [];
+    const send = pr => {
+      this.skipAnim = dragged;
+      if (this.onMove) this.onMove({ from, to, promotion: pr });
+      this.skipAnim = false;
+      this.render();
+    };
+    if (cands.length > 1) { this.render(); this.askPromo(this.pos.turn, pr => { if (pr) send(pr); else this.render(); }); return; }
+    send('');
+  }
+  askPromo(color, cb) {
+    this.promoOpen = true;
+    const wrap = document.createElement('div'); wrap.className = 'promo';
+    const box = document.createElement('div'); box.className = 'promo-box';
+    const names = { q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь' };
+    const close = t => { wrap.remove(); this.promoOpen = false; cb(t); };
+    ['q', 'r', 'b', 'n'].forEach(t => {
+      const btn = document.createElement('button'); btn.type = 'button';
+      btn.title = names[t]; btn.setAttribute('aria-label', names[t]);
+      btn.appendChild(this.pieceEl(color === 'w' ? t.toUpperCase() : t));
+      btn.addEventListener('click', ev => { ev.stopPropagation(); close(t); });
+      box.appendChild(btn);
+    });
+    wrap.appendChild(box);
+    wrap.addEventListener('pointerdown', ev => { ev.stopPropagation(); if (ev.target === wrap) close(null); });
+    this.el.appendChild(wrap);
+    box.querySelector('button').focus();
+  }
+  // plays a move object (from/to/promotion) on this.pos with sound + animation
+  play(mv) {
+    const m = this.pos.findMove(mv); if (!m) return null;
+    const san = this.pos.san(m);
+    this.pos.make(m);
+    if (m.captured) Sound.capture(); else Sound.move();
+    this.set(this.pos, { last: { from: m.from, to: m.to }, anim: m });
+    return { m, san };
+  }
+}
+
+
+/* ---------- shell ---------- */
+const CH = [
+  { t: 'Пролог', no: 'Α' }, { t: 'Три дороги', no: 'Β' }, { t: 'Сфинкс', no: 'Γ' }, { t: 'Оракул', no: 'Δ' },
+  { t: 'Ответный дар', no: 'Ε' }, { t: 'Мастерская', no: 'Ζ' }, { t: 'Оборона', no: 'Η' }, { t: 'Колле, 1930', no: 'Θ' }, { t: 'Триумф', no: 'Ω' }
+];
+const SCORED = [1, 2, 3, 4, 5, 6, 7];
+const MAXL = SCORED.length * 3;
+let state = store.get('state', null);
+if (!state || state.v !== 1) state = { v: 1, ch: 0, lv: {} };
+const save = () => store.set('state', state);
+const totalL = () => SCORED.reduce((s, k) => s + (state.lv[k] || 0), 0);
+function setL(ch, n) { if (window.Academy && Academy.on) Academy.reward('ch' + ch, Math.max(1, Math.min(3, n)), CH[ch].t); state.lv[ch] = Math.max(state.lv[ch] || 0, Math.max(1, Math.min(3, n))); save(); renderTabs(); }
+const board = new Board($('#board'));
+const card = $('#card');
+let cur = null; const IMPL = {};
+let epoch = 0, demoGen = 0;
+const later = (fn, ms) => { const e = epoch; return setTimeout(() => { if (e === epoch) fn(); }, ms); };
+
+/* laurel wreath symbol, built once */
+(function laurelSprite() {
+  let leaves = '';
+  const leaf = (a, side) => { const r = 15, cx = 24, cy = 25, t = a * Math.PI / 180; const x = cx + r * Math.cos(t), y = cy + r * Math.sin(t); const rot = a + (side < 0 ? 60 : 120); return `<ellipse cx="${x.toFixed(2)}" cy="${y.toFixed(2)}" rx="4.6" ry="2.1" transform="rotate(${rot.toFixed(1)} ${x.toFixed(2)} ${y.toFixed(2)})"/>`; };
+  [118, 142, 166, 190, 214, 238].forEach(a => { leaves += leaf(a, -1); });
+  [62, 38, 14, -10, -34, -58].forEach(a => { leaves += leaf(a, 1); });
+  const sym = `<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true"><symbol id="laurel" viewBox="0 0 48 48"><g fill="currentColor">${leaves}</g><path d="M17 40 Q24 36 31 40" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol></svg>`;
+  document.body.insertAdjacentHTML('afterbegin', sym);
+})();
+const laurel = cls => `<svg class="${cls || ''}" viewBox="0 0 48 48" aria-hidden="true"><use href="#laurel"></use></svg>`;
+
+function renderTabs() {
+  $('#tabs').innerHTML = CH.map((c, i) => {
+    const n = state.lv[i] || 0;
+    const lv = SCORED.includes(i) ? `<span class="lv" aria-label="${n} из 3 венков">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span>` : '';
+    return `<button type="button" data-c="${i}" aria-current="${state.ch === i}" title="${c.no} · ${c.t}">${c.no}<span class="tl">${c.t}</span>${lv}</button>`;
+  }).join('');
+  $('#laurels').innerHTML = `${laurel()}<b>${totalL()}</b>/${MAXL}`;
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) go(+b.dataset.c); });
+function go(i) {
+  if (cur && cur.leave) cur.leave();
+  epoch++; demoGen++;
+  $$('.seal').forEach(x => x.remove());
+  state.ch = i; save();
+  board.canMove = () => false; board.onMove = null; board.layers = null; board.marks = {}; board.arrows = [];
+  board.setOrient('w');
+  $('#board').classList.remove('clicky');
+  tape([]);
+  cur = IMPL[i]; renderTabs(); renderNotes();
+  cur.enter();
+  const t = $(`#tabs [data-c="${i}"]`); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+$('#board').addEventListener('click', e => { if (!cur || !cur.onSquare) return; const s = board.sqAt(e.clientX, e.clientY); if (s >= 0) cur.onSquare(s); });
+card.addEventListener('click', e => {
+  const n = e.target.closest('[data-next]'); if (n) { go(+n.dataset.next); return; }
+  const r = e.target.closest('[data-replay]'); if (r) go(+r.dataset.replay);
+});
+
+/* card helpers */
+function head(kicker, right, title, task) { return `<p class="kicker"><span>${kicker}</span><b>${right || ''}</b></p><h1 class="title">${title}</h1>${task ? `<p class="task" id="task">${task}</p>` : ''}`; }
+function pips(n, i, res) { return `<span class="pips" aria-label="Задание ${Math.min(i + 1, n)} из ${n}">${Array.from({ length: n }, (_, k) => `<i class="${res[k] === true ? 'done' : (res[k] === false ? 'miss' : (k === i ? 'now' : ''))}"></i>`).join('')}</span>`; }
+const say = (type, html) => { const el = $('#fb'); if (el) feedback(el, type, html); };
+function seal(text, good) { $$('.seal').forEach(x => x.remove()); const s = document.createElement('div'); s.className = 'seal' + (good ? ' good' : ''); s.textContent = text; $('#frame').appendChild(s); }
+const scoreBy = errs => errs === 0 ? 3 : (errs <= 2 ? 2 : 1);
+function finishCard(ch, n, line, nextLabel) {
+  setL(ch, n); n = state.lv[ch];
+  Sound.fanfare(); if (n === 3) Confetti.burst(0.8);
+  return `<div class="wreaths" aria-label="${n} ${plural(n, 'венок', 'венка', 'венков')} из 3">${[0, 1, 2].map(k => laurel(k < n ? '' : 'off')).join('')}</div><p class="task">${line}</p>
+    <div class="controls"><button type="button" class="btn primary big" data-next="${ch + 1}">${nextLabel || 'Следующая песнь →'}</button><button type="button" class="btn" data-replay="${ch}">Ещё раз</button></div>`;
+}
+function ctl(html) { const el = $('#ctl'); if (el) el.innerHTML = html; }
+const Bt = (id, label, cls) => `<button type="button" class="btn ${cls || ''}" id="${id}">${label}</button>`;
+const on = (id, fn) => { const el = $('#' + id); if (el) el.onclick = fn; };
+const fmtEval = v => v === null || v === undefined ? '—' : (Math.abs(v) > 20000 ? (v > 0 ? 'мат' : 'мат белым') : ((v >= 0 ? '+' : '−') + (Math.abs(v) / 100).toFixed(1).replace('.', ',')));
+
+/* scroll of moves */
+function tape(sans, startFen) {
+  const el = $('#tapeMoves'); if (!sans.length) { el.innerHTML = ''; return; }
+  const p = new Position(startFen); let n = p.full, t = p.turn; const out = [];
+  sans.forEach((s, k) => { out.push(t === 'w' ? `<span><span class="n">${n}.</span>${esc(ru(s))}</span>` : `<span>${k === 0 ? `<span class="n">${n}…</span>` : ''}${esc(ru(s))}</span>`); if (t === 'b') n++; t = t === 'w' ? 'b' : 'w'; });
+  el.innerHTML = out.slice(-8).join('');
+}
+const fenAfter = (fen, sans) => { const p = new Position(fen); sans.forEach(s => { const m = p.findMove(s); if (!m) throw new Error('bad move ' + s); p.make(m); }); return p.fen(); };
+const sanOfUci = (fen, u) => { const p = new Position(fen); const m = p.findMove({ from: sqIndex(u.slice(0, 2)), to: sqIndex(u.slice(2, 4)), promotion: u[4] || '' }); return m ? p.san(m) : u; };
+
+/* autoplay a SAN line from fen; cb() at the end */
+function demoLine(fen, sans, cb, opts) {
+  opts = opts || {};
+  const p = new Position(fen); board.set(p); board.arrows = []; board.layers = null;
+  const shown = (opts.pre || []).slice(); const preFen = opts.preFen || fen; tape(shown, preFen);
+  const my = ++demoGen; let k = 0;
+  const step = () => {
+    if (my !== demoGen) return;
+    if (k >= sans.length) { if (cb) cb(); return; }
+    const r = board.play(sans[k]); if (!r) { if (cb) cb(); return; }
+    shown.push(r.san); tape(shown, preFen); k++;
+    later(step, opts.delay || 700);
+  };
+  later(step, opts.first || 450);
+}
+
+/* ---------- verified line player: student moves, computer replies ---------- */
+function makeLine(o) {
+  // o: { preFen, pre[], nodes[], side, onDone(stats), onStep(i), badText(san, refSan), altText(san) }
+  const startFen = o.pre.length ? fenAfter(o.preFen, o.pre) : o.preFen;
+  let pos, i, sans, busy, over, gen = 0; let mistakes = 0, hints = 0;
+  const showTape = () => tape(o.pre.concat(sans), o.preFen);
+  function reset() {
+    gen++; demoGen++;
+    pos = new Position(startFen); i = 0; sans = []; busy = false; over = false;
+    board.setOrient(o.side); board.set(pos); board.layers = null; board.arrows = []; board.render(); showTape();
+  }
+  reset();
+  board.canMove = () => !busy && !over && pos.turn === o.side;
+  board.onMove = mv => {
+    const prev = pos.fen();
+    const r = board.play(mv); if (!r) return;
+    const u = uciOf(r.m); const nd = o.nodes[i];
+    if (u === nd.m) {
+      sans.push(r.san); showTape(); board.arrows = []; board.render(); Sound.ok();
+      if (o.onStep) o.onStep(i, r.san);
+      if (nd.end || !nd.r) { over = true; flash($('#frame'), 'ok'); o.onDone({ mistakes, hints, sans }); return; }
+      busy = true; const g0 = gen;
+      later(() => {
+        if (g0 !== gen) return;
+        const rr = board.play(nd.r); sans.push(rr.san); showTape(); i++; busy = false;
+        if (i >= o.nodes.length) { over = true; o.onDone({ mistakes, hints, sans }); }
+        else if (o.onReply) o.onReply(i, rr.san);
+      }, 650);
+      return;
+    }
+    busy = true; const g1 = gen;
+    const back = ms => later(() => { if (g1 !== gen) return; pos = new Position(prev); board.set(pos); board.arrows = []; board.render(); busy = false; }, ms);
+    if (nd.alts.includes(u)) {
+      const kind = (nd.eq || []).includes(u) ? 'eq' : (nd.many ? 'many' : 'weak');
+      const def = { eq: `${esc(ru(r.san))} — тоже отлично! Но мы разберём другой путь — найдите его.`, many: `${esc(ru(r.san))} — тоже выигрывает. Но попробуйте найти самый точный ход.`, weak: `${esc(ru(r.san))} — неплохо, но есть ход сильнее. Ищите!` };
+      Sound.tick(); say('warn', o.altText ? o.altText(r.san, kind) : def[kind]); back(1400); return;
+    }
+    mistakes++; Sound.bad(); flash($('#frame'), 'bad');
+    const ref = nd.refs[u]; let refSan = '';
+    if (ref) { const m2 = pos.findMove({ from: sqIndex(ref.slice(0, 2)), to: sqIndex(ref.slice(2, 4)), promotion: ref[4] || '' }); if (m2) { refSan = pos.san(m2); board.arrows = [{ from: m2.from, to: m2.to, color: 'var(--terra)' }]; board.render(); } }
+    say('bad', o.badText ? o.badText(r.san, refSan) : `${esc(ru(r.san))}? ${refSan ? `Ответ <b>${esc(ru(refSan))}</b> — и атака гаснет.` : 'Так дар не сработает.'}`);
+    back(1800);
+  };
+  return {
+    reset,
+    hint() { if (busy || over) return false; hints++; const m = o.nodes[i].m; board.arrows = [{ from: sqIndex(m.slice(0, 2)), to: sqIndex(m.slice(2, 4)), color: 'var(--sea)' }]; board.render(); Sound.reveal(); return true; },
+    stats: () => ({ mistakes, hints })
+  };
+}
+
+/* notes */
+const NOTES = [
+  ['Покажите экран. Ходы делает ведущий по подсказкам группы.', 'Сначала группа ищет четыре «детали коня» — фигуры, которые делают жертву. Потом песни по порядку.', 'Венки: 3 за главу без ошибок и подсказок.'],
+  ['Три раунда: король отступает на g8, h6 и g6. Белые ходы делает группа.', 'Ход «тоже неплохо» не наказывается — просто ищем сильнейший.', 'Ошибочный ход показывает ответ чёрных красной стрелкой.'],
+  ['Позиция похожа на прошлую, но слон стоит на e7. Обсудите, какой защитник мешает больше всех, и только потом кликайте.'],
+  ['Сначала голосование в чате, потом ответ. После ответа доска сама показывает, что случится.'],
+  ['Та же идея, но жертвуют чёрные: доска перевёрнута. Это позиция Греко из пролога, только в зеркале.'],
+  ['Расставьте слона, коня и ферзя на отмеченные поля. Рабочих сборок несколько — можно искать их всех.'],
+  ['Теперь ученики играют чёрными и отбивают некорректный дар. Белые давят сильнейшими ходами.'],
+  ['Партия Колле — О\'Ханлон, Ницца, 1930. На каждой остановке группа угадывает ход белых. Две попытки.'],
+  ['Подведите итог, раздайте домашнее задание и PGN.']
+];
+function renderNotes() { $('#notes').innerHTML = `<p class="kicker" style="margin-bottom:8px"><span>${CH[state.ch].no} · ${CH[state.ch].t}</span></p><ul>${NOTES[state.ch].map(n => `<li>${n}</li>`).join('')}</ul>`; }
+$('#notesBtn').addEventListener('click', () => $('#drawer').classList.toggle('open'));
+$('#drawerClose').addEventListener('click', () => $('#drawer').classList.remove('open'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#drawer').classList.remove('open'); });
+$('#soundBtn').setAttribute('aria-pressed', String(prefs.sound));
+$('#soundBtn').addEventListener('click', () => { prefs.sound = !prefs.sound; store.set('sound', prefs.sound); $('#soundBtn').setAttribute('aria-pressed', String(prefs.sound)); if (prefs.sound) Sound.ok(); });
+
+
+/* ---------- songs ---------- */
+const PNAME = { p: 'пешки', n: 'коня', b: 'слона', r: 'ладьи', q: 'ферзя' };
+const RUP = s => esc(ru(s));
+function clearSeal() { $$('.seal').forEach(x => x.remove()); }
+
+/* Α — prologue: find the parts of the horse */
+IMPL[0] = (() => {
+  const PARTS = [
+    { sq: 'd3', t: '<b>Слон d3</b> — сам дар: бьёт h7 с шахом.' },
+    { sq: 'f3', t: '<b>Конь f3</b> — прыгает на g5 с шахом.' },
+    { sq: 'd1', t: '<b>Ферзь d1</b> — мчится на h5.' },
+    { sq: 'e5', t: '<b>Пешка e5</b> — выгнала коня с f6, защитника h7.' },
+    { sq: 'c1', t: '<b>Слон c1</b> — тайный помощник: стережёт g5.' }
+  ];
+  let found;
+  function list() { return `<ul class="rules" id="parts">${PARTS.map(p => `<li class="${found.has(p.sq) ? '' : 'dim'}">${laurel('ic')}<span>${found.has(p.sq) ? p.t : '…'}</span></li>`).join('')}</ul>`; }
+  function draw() {
+    board.marks = {}; found.forEach(s => board.marks[s] = 'find');
+    const A = []; if (found.has('d3')) A.push({ from: sqIndex('d3'), to: sqIndex('h7'), color: 'var(--terra)' }); if (found.has('f3')) A.push({ from: sqIndex('f3'), to: sqIndex('g5'), color: 'var(--terra)' }); if (found.has('d1')) A.push({ from: sqIndex('d1'), to: sqIndex('h5'), color: 'var(--terra)' });
+    board.arrows = A; board.render();
+  }
+  return {
+    enter() {
+      found = new Set();
+      board.set(new Position(D.base)); $('#board').classList.add('clicky');
+      tape(D.basePre, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1');
+      card.innerHTML = head('Пролог', 'Греко, около 1620', 'Дар данайцев', 'Белые отдадут слона на h7 — как троянцы приняли деревянного коня. Найдите на доске <b>пять деталей коня</b>: фигуры, которые делают жертву.') +
+        list() + `<p class="note">«Бойтесь данайцев, дары приносящих». — Вергилий, «Энеида»</p><div class="fb" id="fb"></div>
+        <div class="controls"><button type="button" class="btn primary big" data-next="1">Песнь Β →</button></div>`;
+      draw();
+    },
+    onSquare(s) {
+      const n = sqName(s), pc = board.pos.board[s];
+      const part = PARTS.find(p => p.sq === n);
+      if (part && !found.has(n)) {
+        found.add(n); Sound.reveal(); draw(); $('#parts').outerHTML = list();
+        if (found.size === PARTS.length) { say('ok', 'Конь собран. Можно дарить!'); seal('ДАР ГОТОВ', true); Confetti.burst(0.5); }
+        else say('ok', `Найдено ${found.size} из ${PARTS.length}.`);
+      } else if (pc && pc === pc.toUpperCase() && !part) { Sound.tick(); say('warn', 'Эта фигура в дар не входит.'); }
+    }
+  };
+})();
+
+/* shared: rounds of verified lines */
+function roundsChapter(ch, rounds, cfg) {
+  let i, res, errs, L;
+  function show() {
+    const r = rounds[i];
+    card.innerHTML = head(cfg.kicker, pips(rounds.length, i, res), r.title, r.task) +
+      `<div class="fb" id="fb"></div><div class="controls" id="ctl"></div>`;
+    const play = () => { ctl(Bt('hintB', 'Подсказка', 'hint') + Bt('rsB', 'Заново')); on('hintB', () => { if (L.hint()) say('warn', 'Стрелка показывает сильнейший ход.'); }); on('rsB', () => { L.reset(); say(); }); };
+    play();
+    L = makeLine({
+      preFen: r.preFen, pre: r.pre, nodes: r.nodes, side: cfg.side,
+      badText: cfg.badText, altText: cfg.altText,
+      onStep(k, san) { const t = r.steps && r.steps[k]; say(t ? 'ok' : null, t || ''); },
+      onDone(st) {
+        const e = st.mistakes + st.hints; errs += e; res[i] = e === 0;
+        card.querySelector('.kicker b').innerHTML = pips(rounds.length, i, res);
+        flash($('#frame'), 'ok'); seal(r.seal || 'ТРОЯ ПАЛА', true);
+        say('ok', r.done);
+        const last = i === rounds.length - 1;
+        ctl(Bt('nx', last ? 'Итог песни →' : 'Следующая дорога →', 'primary'));
+        on('nx', () => { clearSeal(); if (last) finish(); else { i++; show(); } });
+      }
+    });
+  }
+  function finish() { card.innerHTML = head(cfg.kicker, '', cfg.doneTitle, '') + finishCard(ch, scoreBy(errs), cfg.doneLine); }
+  return { enter() { i = 0; res = []; errs = 0; show(); } };
+}
+IMPL[1] = roundsChapter(1, D.roads, {
+  kicker: 'Песнь Β · три дороги', side: 'w',
+  doneTitle: 'Три дороги пройдены', doneLine: 'Крg8 — Фh5 и мат на h7. Крh6 — вскрытый шах слоном c1. Крg6 — самая упорная, но и там атака решает.'
+});
+IMPL[4] = roundsChapter(4, D.mirror, {
+  kicker: 'Песнь Ε · ответный дар', side: 'b',
+  doneTitle: 'Дар вернулся', doneLine: 'Та же жертва, только на h2. Слон, конь и ферзь — и пешка, которая открывает линию для ладьи.'
+});
+IMPL[6] = roundsChapter(6, D.defend, {
+  kicker: 'Песнь Η · оборона Трои', side: 'b',
+  badText: (san, ref) => `${RUP(san)}? ${ref ? `Ответ <b>${RUP(ref)}</b> — и ворота Трои рухнули.` : 'Так не устоять.'}`,
+  altText: (san, kind) => kind === 'eq' ? `${RUP(san)} — тоже держит! Но мы разберём другую защиту — найдите её.` : `${RUP(san)} — держится, но есть защита надёжнее. Ищите!`,
+  doneTitle: 'Троя устояла', doneLine: 'Не каждый дар надо бояться: считайте, какие поля защищают ваши фигуры, и ищите контрудар.'
+});
+
+/* Γ — the Sphinx: remove one guard */
+IMPL[2] = (() => {
+  const S = D.sphinx; let miss, done;
+  return {
+    enter() {
+      miss = 0; done = false;
+      board.set(new Position(S.fen)); $('#board').classList.add('clicky');
+      card.innerHTML = head('Песнь Γ', 'загадка', 'Загадка Сфинкса', 'Здесь дар не проходит. Сфинкс разрешает убрать <b>одну</b> чёрную фигуру (не короля). Какую — чтобы Сxh7+ стал сильнейшим ходом?') +
+        `<div class="fb" id="fb"></div><div class="controls" id="ctl">${Bt('hintB', 'Подсказка', 'hint')}</div>`;
+      on('hintB', () => { miss++; board.marks = { g5: 'target' }; board.render(); say('warn', 'Посмотрите, кто держит поле g5.'); });
+    },
+    onSquare(s) {
+      if (done) return;
+      const n = sqName(s), pc = board.pos.board[s];
+      if (!pc || pc === pc.toUpperCase() || pc === 'k') return;
+      const t = S.table[n]; if (!t) return;
+      if (n === S.answer) {
+        done = true;
+        const p = new Position(S.fen); p.board[s] = ''; board.set(new Position(p.fen()), { pop: false }); board.marks = { [n]: 'ok', g5: 'target' }; board.render();
+        seal('ЗАГАДКА РЕШЕНА', true);
+        card.innerHTML = head('Песнь Γ', 'загадка', 'Сторож g5', '') + finishCard(2, 3 - miss, `Слон e7 сторожил поле g5: на Кg5+ было бы Сxg5. Без него Сxh7+ сразу выигрывает (${fmtEval(t.gift)}).`);
+      } else {
+        miss++; Sound.bad(); board.marks = { [n]: 'bad' }; board.render();
+        say('bad', t.gift === null ? `Без ${PNAME[pc]} ${n} дарить уже нечего.` : `Без ${PNAME[pc]} ${n} лучший ход белых — ${RUP(t.best)} (${t.bestS.replace('.', ',')}), а дар даёт ${fmtEval(t.gift)}.`);
+      }
+    }
+  };
+})();
+
+/* Δ — the Oracle: will the gift work? */
+IMPL[3] = (() => {
+  const O = D.oracle; let i, res, answered;
+  function show() {
+    const q = O[i]; answered = false;
+    board.set(new Position(q.fen)); tape([]);
+    card.innerHTML = head('Песнь Δ', pips(O.length, i, res), 'Оракул', 'Ход белых. Сработает ли здесь Сxh7+? Решите до того, как двинуть слона.') +
+      `<div class="duo" id="duo"><button type="button" data-v="1"><b>Троя падёт</b><span>дар работает</span></button><button type="button" data-v="0"><b>Ловушка</b><span>дар не работает</span></button></div>
+      <div class="fb" id="fb"></div><div class="controls" id="ctl"></div>`;
+    $('#duo').onclick = e => { const b = e.target.closest('button'); if (!b || answered) return; answer(b.dataset.v === '1', b); };
+  }
+  function answer(v, btn) {
+    answered = true; const q = O[i]; const ok = v === q.works; res[i] = ok;
+    $$('#duo button').forEach(b => { const right = (b.dataset.v === '1') === q.works; b.classList.toggle('right', right); b.classList.toggle('wrong', !right && b === btn); });
+    card.querySelector('.kicker b').innerHTML = pips(O.length, i, res);
+    if (ok) Sound.ok(); else Sound.bad();
+    say(ok ? 'ok' : 'bad', q.why);
+    demoLine(q.fen, q.demo, () => { if (q.works) seal('ТРОЯ ПАЛА', true); else seal('ЛОВУШКА'); });
+    const last = i === O.length - 1;
+    ctl(Bt('nx', last ? 'Итог песни →' : 'Дальше →', 'primary') + Bt('rp', '↻ Показать снова'));
+    on('nx', () => { clearSeal(); if (last) finish(); else { i++; show(); } });
+    on('rp', () => { clearSeal(); demoLine(q.fen, q.demo, () => seal(q.works ? 'ТРОЯ ПАЛА' : 'ЛОВУШКА', q.works)); });
+  }
+  function finish() {
+    const n = res.filter(Boolean).length;
+    card.innerHTML = head('Песнь Δ', `${n} из ${O.length}`, 'Оракул сказал', '') + finishCard(3, n === O.length ? 3 : (n >= O.length - 2 ? 2 : 1), 'Дар работает, только когда собраны все детали: шах конём с g5, путь ферзю на h5 и ни одного защитника у h7.');
+  }
+  return { enter() { i = 0; res = []; show(); } };
+})();
+
+/* Ζ — Epeius' workshop: build the horse */
+IMPL[5] = (() => {
+  const W = D.build; const KIND = { B: 'Слон', N: 'Конь', Q: 'Ферзь' };
+  let placed, sel, tries, found, solved;
+  const key = () => placed.B + placed.N + placed.Q;
+  function pos() { const p = new Position(W.pre); ['B', 'N', 'Q'].forEach(k => { if (placed[k]) p.board[sqIndex(placed[k])] = k; }); return new Position(p.fen()); }
+  function draw() {
+    board.set(pos()); board.marks = {};
+    if (sel) W.cand[sel].forEach(s => { if (placed[sel] !== s) board.marks[s] = 'cand'; });
+    board.render();
+    $$('#tok button').forEach(b => { const k = b.dataset.k; b.setAttribute('aria-pressed', String(sel === k)); b.classList.toggle('placed', !!placed[k]); b.querySelector('small').textContent = placed[k] || 'не стоит'; });
+    $('#tryB').disabled = !(placed.B && placed.N && placed.Q);
+  }
+  function reason(t) {
+    if (placed.B === 'e2') return 'Слон с e2 не смотрит на h7 — дарить нечего.';
+    if (placed.N === 'e2' || placed.N === 'd2') return 'Коню не прыгнуть на g5 — шаха не будет.';
+    if (placed.Q === 'd2') return 'С d2 ферзю не успеть на h5.';
+    if (placed.Q === 'c2') return 'Ферзь на c2 слишком далеко от h5.';
+    return `Перевес есть (${fmtEval(t.gift)}), но не разгром. Попробуйте точнее.`;
+  }
+  function test() {
+    const k = key(), t = W.table[k]; if (!t) return;
+    tries++;
+    if (t.gift !== null && t.gift >= 200) {
+      found.add(k); Sound.ok(); sel = null; draw();
+      say('ok', `Дар работает: ${fmtEval(t.gift)}. Найдено сборок: ${found.size} из ${W.good}.`);
+      demoLine(pos().fen(), t.pv, () => seal('ТРОЯ ПАЛА', true));
+      if (!solved) { solved = true; setL(5, tries === 1 ? 3 : (tries <= 3 ? 2 : 1)); Sound.fanfare(); }
+      ctl(Bt('nx', 'Следующая песнь →', 'primary') + Bt('again', 'Собрать иначе'));
+      on('nx', () => go(6)); on('again', () => { clearSeal(); draw(); ctl(Bt('tryB', 'Испытать дар', 'primary') + Bt('rsB', 'Убрать всё')); bindCtl(); draw(); say(); });
+    } else { Sound.bad(); flash($('#frame'), 'bad'); say('bad', reason(t)); }
+  }
+  function bindCtl() { on('tryB', test); on('rsB', () => { placed = { B: null, N: null, Q: null }; sel = 'B'; draw(); say(); }); }
+  return {
+    enter() {
+      placed = { B: null, N: null, Q: null }; sel = 'B'; tries = 0; found = new Set(); solved = !!state.lv[5];
+      $('#board').classList.add('clicky');
+      card.innerHTML = head('Песнь Ζ', 'мастерская Эпея', 'Соберите коня', 'Эпей построил троянского коня. Ваша очередь: поставьте слона, коня и ферзя так, чтобы <b>Сxh7+</b> сработал. Выберите фигуру, потом поле.') +
+        `<div class="tokens" id="tok">${['B', 'N', 'Q'].map(k => `<button type="button" data-k="${k}" aria-pressed="false">${pieceSvg(k)}${KIND[k]}<small>не стоит</small></button>`).join('')}</div>
+        <div class="fb" id="fb"></div><div class="controls" id="ctl">${Bt('tryB', 'Испытать дар', 'primary')}${Bt('rsB', 'Убрать всё')}</div>`;
+      $('#tok').onclick = e => { const b = e.target.closest('button'); if (!b) return; sel = b.dataset.k; Sound.tick(); draw(); };
+      bindCtl(); draw();
+    },
+    onSquare(s) {
+      if (!sel) return; const n = sqName(s);
+      if (!W.cand[sel].includes(n)) return;
+      ['B', 'N', 'Q'].forEach(k => { if (k !== sel && placed[k] === n) placed[k] = null; });
+      placed[sel] = n; Sound.move();
+      const next = ['B', 'N', 'Q'].find(k => !placed[k]); sel = next || null;
+      clearSeal(); draw(); say();
+    }
+  };
+})();
+
+/* Θ — Colle vs O'Hanlon: guess the move */
+IMPL[7] = (() => {
+  const C = D.colle; let pos, k, ply, res, tries, busy, firsts;
+  const START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  const showT = () => tape(C.moves.slice(0, ply), START);
+  function advanceTo(target, cb) {
+    const step = () => {
+      if (ply >= target) { busy = false; if (cb) cb(); return; }
+      board.play(C.moves[ply]); ply++; showT(); later(step, 650);
+    };
+    busy = true; step();
+  }
+  function prompt() {
+    tries = 0; busy = false;
+    $('#task').innerHTML = 'Ход белых — найдите ход Колле.';
+    card.querySelector('.kicker b').innerHTML = pips(C.stops.length, k, res);
+  }
+  function enter() {
+    k = 0; res = []; firsts = 0; tries = 0; busy = false; ply = C.stops[0].ply;
+    pos = new Position(fenAfter(START, C.moves.slice(0, ply))); board.set(pos); showT();
+    card.innerHTML = head('Песнь Θ', pips(C.stops.length, 0, res), 'Колле — О’Ханлон', 'Ницца, 1930. Перед вами партия, ставшая учебником. Найдите ход белых.') +
+      `<div class="fb" id="fb"></div><div class="controls" id="ctl">${Bt('hintB', 'Какая фигура?', 'hint')}${Bt('showB', 'Показать ход')}</div>`;
+    on('hintB', () => { if (busy) return; const m = pos.findMove(C.moves[ply]); board.marks = { [sqName(m.from)]: 'find' }; board.render(); tries = Math.max(tries, 1); Sound.reveal(); });
+    on('showB', () => { if (busy) return; reveal(false); });
+    board.canMove = () => !busy && k < C.stops.length && pos.turn === 'w';
+    board.onMove = mv => {
+      const prev = pos.fen(); const r = board.play(mv); if (!r) return;
+      if (r.san === C.moves[ply]) { ply++; showT(); board.marks = {}; board.render(); good(tries === 0); return; }
+      busy = true; tries++; Sound.bad(); flash($('#frame'), 'bad');
+      say('bad', `${RUP(r.san)} — Колле сыграл иначе.${tries >= 2 ? '' : ' Ещё попытка.'}`);
+      later(() => { pos = new Position(prev); board.set(pos); busy = false; if (tries >= 2) reveal(false); }, 1000);
+    };
+  }
+  function reveal() {
+    const m = pos.findMove(C.moves[ply]); board.arrows = [{ from: m.from, to: m.to, color: 'var(--sea)' }]; board.render(); busy = true;
+    later(() => { board.arrows = []; board.play(C.moves[ply]); ply++; showT(); good(false, true); }, 900);
+  }
+  function good(first, shown) {
+    const st = C.stops[k]; res[k] = !!first; if (first) { firsts++; Sound.ok(); }
+    say(first ? 'ok' : (shown ? 'warn' : 'ok'), `<b>${RUP(C.moves[ply - 1])}</b> — ${st.note}`);
+    k++; card.querySelector('.kicker b').innerHTML = pips(C.stops.length, k, res);
+    if (k >= C.stops.length) { busy = true; later(finale, 1400); return; }
+    const target = C.stops[k].ply;
+    later(() => advanceTo(target, () => { pos = board.pos; prompt(); }), 900);
+  }
+  function finale() {
+    seal('1 : 0', true);
+    card.innerHTML = head('Песнь Θ', `${firsts} из ${C.stops.length}`, 'Чёрные сдались', '') +
+      finishCard(7, firsts >= C.stops.length - 1 ? 3 : (firsts >= C.stops.length - 3 ? 2 : 1), C.finText);
+  }
+  return { enter };
+})();
+
+/* Ω — triumph */
+IMPL[8] = (() => {
+  const RANKS = [[19, 'Одиссей'], [14, 'Ахиллес'], [8, 'Гоплит'], [0, 'Юный эфеб']];
+  const DESC = { 'Одиссей': 'хитроумный автор троянского коня', 'Ахиллес': 'неудержимый в атаке', 'Гоплит': 'надёжный воин фаланги', 'Юный эфеб': 'всё ещё впереди' };
+  return {
+    enter() {
+      const t = totalL(); const rank = RANKS.find(r => t >= r[0])[1];
+      board.set(new Position(D.base)); board.arrows = [{ from: sqIndex('d3'), to: sqIndex('h7'), color: 'var(--terra)' }, { from: sqIndex('f3'), to: sqIndex('g5'), color: 'var(--terra)' }, { from: sqIndex('d1'), to: sqIndex('h5'), color: 'var(--terra)' }]; board.render();
+      card.innerHTML = head('Триумф', `${t} / ${MAXL}`, rank, `${DESC[rank][0].toUpperCase() + DESC[rank].slice(1)}.`) +
+        `<ul class="rules">
+          <li>${laurel('ic')}<span><b>Слон</b> бьёт h7 с шахом, у h7 нет защитников (коня f6, поля f8).</span></li>
+          <li>${laurel('ic')}<span><b>Конь</b> прыгает на g5 с шахом, и g5 прикрыто (слон c1, пешка h4).</span></li>
+          <li>${laurel('ic')}<span><b>Ферзь</b> успевает на h5, d3 или g4.</span></li>
+          <li>${laurel('ic')}<span><b>Считайте</b> все три отступления: Крg8, Крh6, Крg6.</span></li>
+        </ul>
+        <p class="note"><b>Домашнее задание:</b> 10 задач темы «Атака на королевском фланге» на Lichess.</p>
+        <div class="links">
+          <a href="https://lichess.org/training/kingsideAttack" target="_blank" rel="noopener">Lichess: атака на короля <span>↗</span></a>
+          <a href="https://en.wikipedia.org/wiki/Greek_gift_sacrifice" target="_blank" rel="noopener">Greek gift sacrifice <span>↗</span></a>
+        </div>
+        <div class="fb" id="fb"></div>
+        <div class="controls" id="ctl">${Bt('pgnB', 'Скопировать PGN', 'primary')}${Bt('resetB', 'Сбросить венки')}</div>`;
+      if (t >= 14) setTimeout(() => { seal('ТРИУМФ', true); Confetti.burst(1); Sound.fanfare(); }, 150);
+      on('pgnB', () => {
+        const txt = window.DAR_PGN || '';
+        const done = () => say('ok', 'PGN скопирован: Lichess → Исследование → Импорт PGN.');
+        const fallback = () => { const ta = document.createElement('textarea'); ta.value = txt; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select(); try { document.execCommand('copy'); done(); } catch (e) { say('warn', 'Не удалось скопировать автоматически.'); } ta.remove(); };
+        try { navigator.clipboard.writeText(txt).then(done, fallback); } catch (e) { fallback(); }
+      });
+      twoStep($('#resetB'), 'Точно сбросить?', () => { state = { v: 1, ch: 0, lv: {} }; save(); go(0); });
+    }
+  };
+})();
+
+/* ---------- boot ---------- */
+renderTabs();
+go(Math.min(CH.length - 1, Math.max(0, state.ch || 0)));
+})();
+
+</script>
+
+</body>
+</html>

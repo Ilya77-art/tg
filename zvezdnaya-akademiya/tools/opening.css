@@ -1,0 +1,57 @@
+
+/* ---------- case pictures everywhere: one optical size and baseline is baked into the images ---------- */
+/* the pictures carry empty space under their ground line: stand them on the bottom of their cell, close to the name */
+.ccard .case-art:has(.case-img) { scale: 1.14; filter: none; align-self: end; margin-bottom: -9%; transform-origin: 50% 79%; }
+.ccard:active .case-art { transform: scale(.96); transition: transform .08s var(--ease); }
+.onb-caps:has(.case-img) { filter: none; }
+.onb-caps img, .csheet .chead .case-art img { width: 100%; height: 100%; }
+
+/* ---------- case opening: the case is a rig of parts on its own floor ---------- */
+.opening .casebox { position: relative; width: min(440px, 54vh, 80vw); aspect-ratio: 1; display: grid; isolation: isolate; }
+.opening .bigcase { width: 100%; height: 100%; aspect-ratio: auto; filter: none; animation: none; transform-origin: 50% 80%; will-change: transform; }
+.opening .bigcase.shake, .opening .bigcase.burst { animation: none; }
+.crig { position: relative; width: 100%; height: 100%; perspective: 900px; transform-origin: 50% 80%; }
+.crig > svg, .crig > div:not(.cr-light) { width: 100%; height: 100%; }
+.cr-p { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; pointer-events: none; user-select: none; -webkit-user-drag: none; }
+.cr-t { z-index: 2; clip-path: inset(0 0 calc(100% - var(--seam)) 0); transform-origin: 50% var(--seam); }
+.cr-b { clip-path: inset(var(--seam) 0 0 0); }
+.cr-w { transform-origin: 50% var(--bot); }
+.crig[data-st="frame"] .cr-w { transform-origin: 22% 60%; }
+/* light from inside: a slit at the seam that grows into a burst */
+.cr-light { position: absolute; z-index: 1; left: calc(50% - var(--cw, 50%) * .36); width: calc(var(--cw, 50%) * .72); top: calc(var(--seam, 55%) - 2.5%); height: 5%; border-radius: 50%; background: radial-gradient(closest-side, #fff 0, rgba(255, 244, 214, .92) 35%, rgba(255, 214, 107, .35) 66%, transparent); mix-blend-mode: screen; opacity: 0; filter: blur(1.5px); pointer-events: none; }
+.crig[data-st="beam"] .cr-light, .crig[data-st="frame"] .cr-light, .crig[data-st="none"] .cr-light { z-index: 3; }
+.opening .o-beam { position: absolute; z-index: 2; left: 50%; bottom: 42%; width: 44%; height: 150%; translate: -50% 0; transform-origin: 50% 100%; background: linear-gradient(to top, rgba(255, 246, 222, .95), rgba(255, 228, 160, .32) 45%, transparent 92%); -webkit-mask: radial-gradient(50% 100% at 50% 100%, #000 35%, transparent); mask: radial-gradient(50% 100% at 50% 100%, #000 35%, transparent); filter: blur(6px); opacity: 0; mix-blend-mode: screen; pointer-events: none; }
+/* a pool of light on the floor under the case: it grounds the object on the dark stage */
+.opening .o-floor { position: absolute; z-index: -1; left: 8%; right: 8%; top: 70%; height: 20%; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--rc, #5e5ce6) 40%, transparent), transparent); filter: blur(6px); pointer-events: none; }
+
+/* ---------- the reveal: the prize rises onto its own floor, the words follow it ---------- */
+.reveal .rv { animation: revIn .55s var(--out) both; animation-delay: var(--d, 0ms); }
+.reveal.quick .rv { animation-duration: .35s; }
+@keyframes revIn { from { opacity: 0; transform: translateY(12px); } }
+.reveal .r3wrap { position: relative; display: grid; place-items: center; animation: revRise .95s cubic-bezier(.2, 1.25, .35, 1) 60ms both; }
+.reveal.quick .r3wrap { animation-duration: .6s; animation-delay: 0ms; }
+@keyframes revRise { from { opacity: 0; transform: translateY(46px) scale(.8); } }
+.reveal .r3d { z-index: 1; }
+.reveal .r-floor { position: absolute; z-index: 0; left: 50%; bottom: 5%; width: 58%; height: 9%; translate: -50% 0; transform: scaleX(var(--fs, 1)); border-radius: 50%; background: radial-gradient(closest-side, rgba(0, 0, 0, .6), color-mix(in srgb, var(--rc) 24%, transparent) 62%, transparent); filter: blur(3px); pointer-events: none; }
+.reveal .racts .btn { min-height: 44px; }
+.dreamhit { font-weight: 700; color: #ff7a8a; }
+
+/* ---------- the 3D viewer: the edge layers take the silhouette from one shared mask ---------- */
+.i-obj .lyr.ml { -webkit-mask: var(--mask) center / 100% 100% no-repeat; mask: var(--mask) center / 100% 100% no-repeat; }
+
+@media (max-width: 560px) {
+  .opening .casebox { width: min(340px, 46vh, 86vw); }
+}
+
+/* the climax flash: light from the prize, not a white screen */
+.flash { background: radial-gradient(60% 55% at 50% 48%, rgba(255, 255, 255, .95), color-mix(in srgb, var(--flash, #ffffff) 55%, transparent) 45%, transparent 80%); animation: flash2 .62s var(--out) forwards; }
+@keyframes flash2 { from { opacity: .9; } to { opacity: 0; } }
+/* the card's glow follows the picture down to where the object now stands */
+.ccard:has(.case-img)::before { top: 24%; height: 50%; }
+
+/* ---------- opening videos: placed over the picture, edges feathered into a backdrop of the same colour ---------- */
+.crig .cr-v { position: absolute; z-index: 4; object-fit: fill; opacity: 0; pointer-events: none; background: transparent;
+  -webkit-mask: linear-gradient(to right, transparent, #000 11%, #000 89%, transparent), linear-gradient(to bottom, transparent, #000 11%, #000 89%, transparent); -webkit-mask-composite: source-in;
+  mask: linear-gradient(to right, transparent, #000 11%, #000 89%, transparent), linear-gradient(to bottom, transparent, #000 11%, #000 89%, transparent); mask-composite: intersect; }
+.opening .o-vbg { position: absolute; inset: 0; pointer-events: none; opacity: 0; transition: opacity .5s var(--ease); background: radial-gradient(70% 66% at 50% 46%, var(--vbg, #080e20) 0 30%, transparent 88%); }
+.opening[data-vid] .o-vbg { opacity: 1; }
