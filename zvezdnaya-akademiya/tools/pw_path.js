@@ -1,5 +1,6 @@
 // node tools/pw_path.js [screenshot-prefix] — «Путь чемпионов» end to end in Chromium (needs playwright):
-// a student, the page and its world tabs, a locked opponent, moves by mouse and keyboard, a turned board, a take-back,
+// a student, the map (landscapes, road, dragging, the wheel), a locked opponent, the game laid out on the opponent's landscape,
+// moves by mouse and keyboard, a turned board, a take-back,
 // a won game (stars, the next opponent opens), a draw by agreement, resigning while the opponent thinks, leaving a game.
 // It runs on a copy of index.html in the temp folder with three hooks into the module (the page itself keeps them private).
 const { chromium } = require('playwright');
@@ -32,30 +33,48 @@ fs.writeFileSync(html, t);
   await p.evaluate(() => document.querySelectorAll('.onb').forEach(x => x.remove()));
   if (out) await p.screenshot({ path: out + '-home-student.png' });
 
-  // the page
+  // the map
   await p.click('.tl-arena'); await p.waitForTimeout(900);
-  const pg = await p.evaluate(() => ({
-    tabs: [...document.querySelectorAll('.wtabs [data-w]')].map(b => b.textContent.trim() + ':' + b.getAttribute('aria-pressed')),
-    stops: document.querySelectorAll('.apstop').length, locked: document.querySelectorAll('.apstop.s-lock').length,
-    cards: [...document.querySelectorAll('.apcard h3')].map(h => h.textContent), sum: document.querySelector('.ap-sum')?.textContent,
-    imgs: [...document.images].filter(i => !i.complete || !i.naturalWidth).length
-  }));
-  log('page', JSON.stringify(pg));
-  assert.equal(pg.stops, 12); assert.equal(pg.locked, 11); assert.equal(pg.imgs, 0);
-  // switch the world tab: cards change, scroll stays
-  await p.click('.wtabs [data-w="peaks"]'); await p.waitForTimeout(400);
-  const peaks = await p.evaluate(() => [...document.querySelectorAll('.apcard h3')].map(h => h.textContent));
-  log('peaks cards', peaks); assert.deepEqual(peaks, ['Снежок', 'Бип-Буп', 'Профессор Ух']);
-  // a locked stop: toast, the world follows
-  await p.click('.apstop[data-bot="10"]'); await p.waitForTimeout(400);
-  const lockState = await p.evaluate(() => ({ toast: document.querySelector('.toast')?.textContent, cards: [...document.querySelectorAll('.apcard h3')].map(h => h.textContent), modal: !!document.querySelector('.modal') }));
-  log('locked click', JSON.stringify(lockState)); assert.equal(lockState.modal, false);
-  if (out) await p.screenshot({ path: out + '-path-citadel.png' });
+  const pg = await p.evaluate(() => {
+    const m = document.querySelector('#amap');
+    return { nodes: document.querySelectorAll('.anode').length, locked: document.querySelectorAll('.anode.s-lock').length, cur: document.querySelector('.anode.cur')?.dataset.bot,
+      segs: document.querySelectorAll('.am-seg img.bot-bg').length, road: document.querySelector('#amRoad path')?.getAttribute('d')?.length || 0,
+      wide: m.scrollWidth > m.clientWidth * 3, menus: document.querySelectorAll('.wtabs, .apgrid, .apcard').length, hud: document.querySelector('#amCur')?.textContent,
+      imgs: [...document.images].filter(i => !i.complete || !i.naturalWidth).length };
+  });
+  log('map', JSON.stringify(pg));
+  assert.equal(pg.nodes, 12); assert.equal(pg.locked, 11); assert.equal(pg.segs, 12); assert.equal(pg.cur, '0'); assert.ok(pg.road > 200); assert.ok(pg.wide); assert.equal(pg.menus, 0); assert.equal(pg.imgs, 0);
+  // the wheel and a mouse drag travel along the road and open nothing
+  const sl = () => p.evaluate(() => document.querySelector('#amap').scrollLeft);
+  const s0 = await sl();
+  await p.mouse.move(700, 300); await p.mouse.wheel(0, 900); await p.waitForTimeout(300);
+  const s1 = await sl(); log('wheel', s0, '→', s1); assert.ok(s1 > s0);
+  await p.mouse.move(900, 250); await p.mouse.down(); await p.mouse.move(600, 260, { steps: 6 }); await p.mouse.up(); await p.waitForTimeout(200);
+  const s2 = await sl(); log('drag', s1, '→', s2); assert.ok(s2 > s1); assert.equal(await p.$('.modal'), null);
+  // a locked opponent far along the road: a toast, no card
+  await p.evaluate(() => document.querySelector('.anode[data-bot="10"]').scrollIntoView({ inline: 'center' })); await p.waitForTimeout(200);
+  await p.click('.anode[data-bot="10"]'); await p.waitForTimeout(400);
+  const lockState = await p.evaluate(() => ({ toast: document.querySelector('.toast')?.textContent, modal: !!document.querySelector('.modal') }));
+  log('locked click', JSON.stringify(lockState)); assert.equal(lockState.modal, false); assert.ok(/Голем/.test(lockState.toast));
+  if (out) await p.screenshot({ path: out + '-map-citadel.png' });
+  // «К сопернику» brings the next opponent back to the middle
+  await p.click('#amCur'); await p.waitForTimeout(900);
+  const back = await p.evaluate(() => { const map = document.querySelector('#amap'), m = map.getBoundingClientRect(), n = document.querySelector('.anode[data-bot="0"]').getBoundingClientRect(); return { left: Math.round(n.left - m.left), right: Math.round(m.right - n.right), scroll: map.scrollLeft }; });
+  log('back to the next opponent', JSON.stringify(back)); assert.ok(back.left >= 0 && back.right >= 0 && back.scroll < 50);
+  if (out) await p.screenshot({ path: out + '-map.png' });
 
   // the first opponent
-  await p.click('.apstop[data-bot="0"]'); await p.waitForTimeout(700);
+  await p.click('.anode[data-bot="0"]'); await p.waitForTimeout(700);
   assert.ok(await p.$('.botsheet'));
   await p.click('#biGo'); await p.waitForTimeout(900);
+  // the game: the opponent's landscape is the page, the board takes the height, the moves are a small card
+  const lay = await p.evaluate(() => {
+    const a = document.querySelector('.arena'), r = s => document.querySelector(s).getBoundingClientRect();
+    return { bg: a.querySelector(':scope > .ar-bg')?.src === window.ACAD_BOTART.bg.b01, bgW: Math.round(r('.arena > .ar-bg').width), board: Math.round(r('#aBoard').width),
+      side: Math.round(r('.ar-side').height), frame: Math.round(r('.ar-bw').height), log: Math.round(r('.ar-log').height), fits: a.scrollHeight <= a.clientHeight };
+  });
+  log('game layout', JSON.stringify(lay));
+  assert.ok(lay.bg); assert.equal(lay.bgW, 1440); assert.ok(lay.board >= 700); assert.equal(lay.side, lay.frame); assert.ok(lay.log <= 110); assert.ok(lay.fits);
   const sq = async (name) => { // centre of a square on screen, honouring the flip
     return p.evaluate(n => {
       const f = n.charCodeAt(0) - 97, r = +n[1] - 1, flip = __G.flip, bd = document.querySelector('#aBoard').getBoundingClientRect(), c = bd.width / 8;
@@ -105,14 +124,14 @@ fs.writeFileSync(html, t);
   log('result', JSON.stringify(res)); assert.equal(res.title, 'Победа!'); assert.equal(res.stars, 2);
   if (out) await p.screenshot({ path: out + '-win.png' });
   await p.click('#arNext'); await p.waitForTimeout(900);
-  const nx = await p.evaluate(() => ({ modal: document.querySelector('.botsheet h2')?.textContent, unlocked: document.querySelectorAll('.apstop:not(.s-lock)').length, won: document.querySelectorAll('.apstop.s-won').length, sum: document.querySelector('.ap-sum')?.textContent }));
-  log('next', JSON.stringify(nx)); assert.equal(nx.modal, 'Колючка'); assert.equal(nx.won, 1);
+  const nx = await p.evaluate(() => ({ modal: document.querySelector('.botsheet h2')?.textContent, unlocked: document.querySelectorAll('.anode:not(.s-lock)').length, won: document.querySelectorAll('.anode.s-won').length, cur: document.querySelector('.anode.cur')?.dataset.bot }));
+  log('next', JSON.stringify(nx)); assert.equal(nx.modal, 'Колючка'); assert.equal(nx.won, 1); assert.equal(nx.unlocked, 2); assert.equal(nx.cur, '1');
   if (out) await p.screenshot({ path: out + '-next-intro.png' });
   await p.keyboard.press('Escape'); await p.waitForTimeout(300);
   if (out) await p.screenshot({ path: out + '-path-after-win.png' });
 
   // the second opponent: draw by agreement, resign
-  await p.click('.apcard [data-meet="1"]'); await p.waitForTimeout(600);
+  await p.click('.anode[data-bot="1"]'); await p.waitForTimeout(600);
   await p.click('#biGo'); await p.waitForTimeout(900);
   if (out) await p.screenshot({ path: out + '-game2.png' });
   await p.click('#arDraw'); await p.click('#arDraw');
@@ -128,7 +147,7 @@ fs.writeFileSync(html, t);
   log('resign', JSON.stringify(rs)); assert.equal(rs.t, 'Поражение'); assert.equal(rs.sans, 1);
   await p.click('#arMap'); await p.waitForTimeout(700);
   // leaving a game in progress asks first
-  await p.click('.apcard [data-meet="1"]'); await p.waitForTimeout(600); await p.click('#biGo'); await p.waitForTimeout(800);
+  await p.click('.anode[data-bot="1"]'); await p.waitForTimeout(600); await p.click('#biGo'); await p.waitForTimeout(800);
   await click('e2'); await click('e4'); await p.waitForTimeout(200);
   await p.click('#arX'); await p.waitForTimeout(150);
   const armed = await p.evaluate(() => ({ text: document.querySelector('#arX')?.textContent, open: !!document.querySelector('.arena') }));
@@ -141,6 +160,6 @@ fs.writeFileSync(html, t);
   const tile = await p.evaluate(() => document.querySelector('.tl-arena')?.innerText);
   log('tile', JSON.stringify(tile));
   assert.equal(errs.length, 0, errs.join('\n'));
-  console.log('PASS «Путь чемпионов»: page, 12 opponents, game, win, draw, resign');
+  console.log('PASS «Путь чемпионов»: map of 12 opponents, game on their landscape, win, draw, resign');
   await b.close();
 })().catch(e => { console.error('FAIL', e); process.exit(1); });

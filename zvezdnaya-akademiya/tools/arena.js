@@ -107,65 +107,106 @@ const Arena = (() => {
     });
   }
 
-  /* ---------- the page: worlds, the twelve, the chosen world's three ---------- */
-  /* the world shown beside the grid: the next opponent's, until the student picks another */
-  let pick = null, pickFor;
-  function world(s) {
-    const id = s ? s.id : '';
-    if (!pick || pickFor !== id) { pick = BOTS[next(s)].world; pickFor = id; }
-    return pick;
+  /* ---------- the map: the twelve landscapes one after another, a road through them, each opponent in their own place ---------- */
+  /* wide screens travel left to right, tall phones top to bottom; layout() measures the map and places everything in pixels */
+  function node(s, b, cur) {
+    const i = b.i, st = best(s, b), open = unlocked(s, i), state = st ? 'won' : open ? 'open' : 'lock';
+    const isCur = i === cur && open && !st;
+    const label = `${i + 1}. ${b.name}, ${WORLDS[b.world].name}: ${st ? `побеждён, ${st} ${plural(st, 'звезда', 'звезды', 'звёзд')} из 3` : open ? 'можно играть' : 'закрыт, сначала победите предыдущего соперника'}`;
+    return `<button type="button" class="anode s-${state}${isCur ? ' cur' : ''}" data-bot="${i}" aria-label="${esc(label)}">
+        <span class="an-ped"></span><span class="an-char">${face(b)}</span>
+        ${state === 'lock' ? `<span class="an-lock">${ICON.lock}</span>` : ''}${isCur ? '<span class="an-go">Играть</span>' : ''}
+        <span class="an-tag"><span class="an-name"><b class="num">${i + 1}</b>${esc(b.name)}</span>${st ? `<span class="an-st" aria-hidden="true">${stars3(st)}</span>` : ''}</span>
+      </button>`;
   }
-  function stops(s) {
-    const cur = next(s), w = world(s);
-    return BOTS.map((b, i) => {
-      const st = best(s, b), open = unlocked(s, i), state = st ? 'won' : open ? 'open' : 'lock';
-      const isCur = i === cur && open && !st;
-      const label = `${i + 1}. ${b.name}: ${st ? `побеждён, ${st} ${plural(st, 'звезда', 'звезды', 'звёзд')} из 3` : open ? 'можно играть' : 'закрыт, сначала победите предыдущего соперника'}`;
-      return `<button type="button" class="apstop s-${state}${isCur ? ' cur' : ''}${b.world === w ? ' in' : ''}" data-bot="${i}" aria-label="${esc(label)}">
-        <span class="ap-n num">${i + 1}</span>${state === 'lock' ? `<span class="ap-lock">${ICON.lock}</span>` : ''}
-        <span class="ap-art">${face(b)}</span><b>${esc(b.name)}</b>${st ? `<span class="ap-st" aria-hidden="true">${stars3(st)}</span>` : ''}</button>`;
-    }).join('');
-  }
-  function cards(s, pop) {
-    return BOTS.filter(b => b.world === world(s)).map((b, k) => {
-      const st = best(s, b), open = unlocked(s, b.i);
-      return `<div class="apcard${open ? '' : ' locked'}${pop ? ' pop' : ''}" style="--k:${k}">
-        <div class="ac-art">${landscape(b)}${face(b)}</div>
-        <div class="ac-info"><h3>${esc(b.name)}</h3><p>${esc(b.who)}</p>
-          <div class="ac-rw"><span>Награда: до ${3 * b.mult} звёзд</span><span class="ac-st" aria-label="${st ? `Лучший результат: ${st} из 3` : 'Пока без звёзд'}">${stars3(st)}</span></div>
-          <button type="button" class="btn ${open ? '' : 'soft'}" data-meet="${b.i}">${open ? (st ? 'Сыграть ещё' : 'Встретиться') : `${ICON.lock}Пока закрыт`}</button></div></div>`;
-    }).join('');
-  }
+  let mapRO = null, mapCur = 0;
   function renderMap() {
-    const s = active(), w = world(s);
-    const sum = s ? `<span class="ap-sum">Побеждено <b class="num">${won(s)}</b> из ${BOTS.length} · <b class="num">${starsGot(s)}</b> из ${BOTS.length * 3}${STAR}</span>` : '';
-    const tabs = WKEYS.map(k => `<button type="button" data-w="${k}" aria-pressed="${k === w}"><b>${esc(WORLDS[k].name)}</b><small>3 соперника · звёзды ×${WORLDS[k].mult}</small></button>`).join('');
-    const pb = page(phead('Путь чемпионов', s ? 'Четыре мира, двенадцать друзей и соперников. Следующий открывается победой.' : 'Выберите ученика, чтобы открывать новых соперников и получать звёзды.', sum),
-      `<div class="wtabs" role="group" aria-label="Миры">${tabs}</div>
-      <div class="apsplit"><div class="apgrid" id="apGrid" role="group" aria-label="Двенадцать соперников">${stops(s)}</div><div class="aplist" id="apList">${cards(s)}</div></div>`, 'apath');
-    pb.addEventListener('click', e => {
-      const t = e.target.closest('[data-w]');
-      if (t) { if (t.dataset.w !== pick) { Sound.click(); show(t.dataset.w); } return; }
-      const n = e.target.closest('[data-bot],[data-meet]'); if (!n) return;
-      const i = +(n.dataset.bot || n.dataset.meet);
+    const s = active(), cur = next(s), all = s && won(s) === BOTS.length;
+    mapCur = cur;
+    view.innerHTML = `<div class="amap-page">
+      <div class="am-hud"><h1>Путь чемпионов</h1>
+        <p>${s ? `Побеждено <b class="num">${won(s)}</b> из ${BOTS.length} · <b class="num">${starsGot(s)}</b> из ${BOTS.length * 3}${STAR}` : 'Выберите ученика, чтобы открывать новых соперников.'}</p>
+        <button type="button" class="btn sm" id="amCur">${all ? 'Все побеждены · к цитадели' : `К сопернику: ${esc(BOTS[cur].name)}`}</button></div>
+      <div class="amap" id="amap" aria-label="Карта соперников: двенадцать соперников в четырёх мирах"><div class="amap-in" id="amapIn">
+        ${BOTS.map(b => `<div class="am-seg" data-seg="${b.i}">${landscape(b)}</div>`).join('')}
+        <svg class="am-road" id="amRoad" aria-hidden="true"><path class="r0"/><path class="r1"/><path class="r2"/></svg>
+        ${WKEYS.map(k => `<span class="am-world" data-wf="${WORLDS[k].from}"><b>${esc(WORLDS[k].name)}</b> · звёзды ×${WORLDS[k].mult}</span>`).join('')}
+        ${BOTS.map(b => node(s, b, cur)).join('')}
+      </div></div></div>`;
+    const map = $('#amap');
+    layout(); focusOn(cur, false);
+    if (mapRO) mapRO.disconnect();
+    if (window.ResizeObserver) { let w0 = map.clientWidth, h0 = map.clientHeight; mapRO = new ResizeObserver(() => { if (!map.isConnected) { mapRO.disconnect(); return; } if (map.clientWidth === w0 && map.clientHeight === h0) return; w0 = map.clientWidth; h0 = map.clientHeight; layout(); focusOn(mapCur, false); }); mapRO.observe(map); }
+    $('#amCur').onclick = () => { Sound.click(); focusOn(mapCur, true); const n = map.querySelector(`[data-bot="${mapCur}"]`); if (n) n.focus({ preventScroll: true }); };
+    /* mouse users drag the map, the wheel scrolls along the road; touch scrolls natively */
+    let drag = null;
+    map.addEventListener('pointerdown', e => { if (e.pointerType !== 'mouse' || e.button) return; drag = { x: e.clientX, y: e.clientY, l: map.scrollLeft, t: map.scrollTop, moved: false }; });
+    map.addEventListener('pointermove', e => {
+      if (!drag) return;
+      const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+      if (Math.hypot(dx, dy) > 5) drag.moved = true;
+      if (drag.moved) { map.scrollLeft = drag.l - dx; map.scrollTop = drag.t - dy; map.classList.add('dragging'); }
+    });
+    const end = () => { setTimeout(() => map.classList.remove('dragging'), 0); if (drag && drag.moved) map.dataset.dragged = '1'; drag = null; };
+    map.addEventListener('pointerup', end); map.addEventListener('pointerleave', end);
+    map.addEventListener('wheel', e => { if (map.classList.contains('vert')) return; if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) { map.scrollLeft += e.deltaY; e.preventDefault(); } }, { passive: false });
+    map.addEventListener('click', e => {
+      if (map.dataset.dragged) { delete map.dataset.dragged; return; }
+      const n = e.target.closest('[data-bot]'); if (!n) return;
+      const i = +n.dataset.bot;
       if (!unlocked(active(), i)) {
-        show(BOTS[i].world);
-        Sound.bad(); toast(`${ICON.lock || ''}<span>Сначала победите соперника <b>${esc(BOTS[i - 1].name)}</b></span>`);
-        const stop = $(`#apGrid [data-bot="${i}"]`); if (stop) { stop.classList.remove('nope'); void stop.offsetWidth; stop.classList.add('nope'); }
+        Sound.bad(); toast(`<span class="tq-ic lk">${ICON.lock}</span><span>Сначала победите соперника <b>${esc(BOTS[i - 1].name)}</b></span>`);
+        n.classList.remove('nope'); void n.offsetWidth; n.classList.add('nope');
         return;
       }
       Sound.click(); intro(i);
     });
   }
-  /* another world beside the grid, without redrawing the page (the scroll stays where it is) */
-  function show(w) {
-    if (pick === w) return;
-    pick = w;
-    if (UI.view !== 'arena') return;
-    const s = active(), list = $('#apList'), grid = $('#apGrid');
-    $$('.wtabs [data-w]').forEach(b => b.setAttribute('aria-pressed', b.dataset.w === w));
-    if (grid) $$('[data-bot]', grid).forEach(b => b.classList.toggle('in', BOTS[+b.dataset.bot].world === w));
-    if (list) list.innerHTML = cards(s, !reduceMotion);
+  /* sizes and places: the landscapes overlap and fade into each other, the road runs through the opponents' feet */
+  function layout() {
+    const map = $('#amap'), inn = $('#amapIn'); if (!map || !inn) return;
+    const W = map.clientWidth, H = map.clientHeight; if (!W || !H) return;
+    const vert = W < 720 && H > W * 1.15, N = BOTS.length;
+    map.classList.toggle('vert', vert);
+    /* seg: the distance between two opponents along the road; ov: how far a landscape fades over the one before it */
+    const seg = vert ? Math.round(Math.min(W * .86, 480)) : Math.round(Math.max(420, Math.min(H * 1.1, W * .48)));
+    const ov = Math.round(seg * .24), pad = Math.round(seg * .32), len = pad * 2 + seg * N;
+    const nh = Math.round(vert ? Math.max(104, Math.min(seg * .46, 210)) : Math.max(130, Math.min(H * .3, 270)));
+    inn.style.width = (vert ? W : len) + 'px'; inn.style.height = (vert ? len : H) + 'px';
+    inn.style.setProperty('--nh', nh + 'px');
+    const pts = [];
+    BOTS.forEach((b, i) => {
+      const a0 = i ? pad + i * seg - ov : 0, a1 = i === N - 1 ? len : pad + (i + 1) * seg;
+      const el = inn.querySelector(`[data-seg="${i}"]`);
+      el.style.cssText = vert ? `top:${a0}px;height:${a1 - a0}px;left:0;width:100%` : `left:${a0}px;width:${a1 - a0}px;top:0;height:100%`;
+      el.style.setProperty('--ov', (i ? ov : 0) + 'px');
+      const p = vert ? [W * (i % 2 ? .68 : .32), pad + i * seg + seg * .8] : [pad + i * seg + seg / 2, H * (i % 2 ? .83 : .73)];
+      pts.push(p);
+      const n = inn.querySelector(`[data-bot="${i}"]`);
+      n.style.left = p[0] + 'px'; n.style.top = p[1] + 'px';
+    });
+    WKEYS.forEach(k => {
+      const f = WORLDS[k].from, el = inn.querySelector(`[data-wf="${f}"]`);
+      el.style.cssText = vert ? `left:12px;top:${(f ? pad + f * seg - ov / 2 : 0) + 12}px` : `left:${(f ? pad + f * seg - ov / 2 : 0) + 16}px;bottom:16px`;
+    });
+    /* the road: from the start of the map through every opponent to its end, smoothed */
+    const all = [vert ? [W * .5, 0] : [0, H * .78]].concat(pts, [vert ? [W * .5, len] : [len, H * .78]]);
+    let d = `M${all[0][0].toFixed(1)} ${all[0][1].toFixed(1)}`;
+    for (let i = 0; i < all.length - 1; i++) {
+      const a = all[Math.max(0, i - 1)], b = all[i], c = all[i + 1], e = all[Math.min(all.length - 1, i + 2)];
+      const c1 = [b[0] + (c[0] - a[0]) / 6, b[1] + (c[1] - a[1]) / 6], c2 = [c[0] - (e[0] - b[0]) / 6, c[1] - (e[1] - b[1]) / 6];
+      d += ` C${c1[0].toFixed(1)} ${c1[1].toFixed(1)} ${c2[0].toFixed(1)} ${c2[1].toFixed(1)} ${c[0].toFixed(1)} ${c[1].toFixed(1)}`;
+    }
+    const svg = $('#amRoad'), w = vert ? W : len, h = vert ? len : H, rw = Math.round(nh * .2);
+    svg.setAttribute('width', w); svg.setAttribute('height', h); svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+    $$('path', svg).forEach((el, k) => { el.setAttribute('d', d); el.setAttribute('stroke-width', [rw, Math.round(rw * .72), Math.max(2, Math.round(rw * .08))][k]); });
+  }
+  /* bring an opponent to the middle of the screen */
+  function focusOn(i, smooth) {
+    const map = $('#amap'), n = map && map.querySelector(`[data-bot="${i}"]`); if (!n) return;
+    const vert = map.classList.contains('vert');
+    const to = vert ? { top: n.offsetTop - map.clientHeight * .55 } : { left: n.offsetLeft - map.clientWidth / 2 };
+    map.scrollTo(Object.assign({ behavior: smooth && !reduceMotion ? 'smooth' : 'auto' }, to));
   }
 
   /* ---------- the card before a game ---------- */
@@ -179,7 +220,6 @@ const Arena = (() => {
   }
   function intro(i) {
     const b = BOTS[i], s = active(), st = best(s, b), w = WORLDS[b.world];
-    show(b.world);
     const m = modal(`<div class="bi">
         <div class="bi-stage">${landscape(b)}${face(b)}</div>
         <div class="bi-info">
@@ -270,9 +310,11 @@ const Arena = (() => {
     ['#arDraw', '#arResign'].forEach(k => { const x = $(k); if (x) x.disabled = !!G.over; });
     const mv = $('#arMoves');
     if (mv) {
+      /* moves in pairs, one short line after another; the newest pair is marked and kept in view */
       let h = '';
-      G.sans.forEach((x, k) => { if (k % 2 === 0) h += `<span class="n">${k / 2 + 1}.</span>`; h += `<span>${esc(x)}</span>`; });
-      mv.innerHTML = h; mv.scrollTop = mv.scrollHeight;
+      for (let k = 0; k < G.sans.length; k += 2) h += `<span class="mp${k + 2 >= G.sans.length ? ' last' : ''}"><i>${k / 2 + 1}.</i>${esc(G.sans[k])}${G.sans[k + 1] ? ' ' + esc(G.sans[k + 1]) : ''}</span>`;
+      mv.innerHTML = h || '<span class="mv0">Ходов пока нет</span>';
+      mv.scrollTop = mv.scrollHeight;
     }
   }
   function draw() { drawSquares(); drawPieces(); drawSide(); }
@@ -523,33 +565,31 @@ const Arena = (() => {
     const el = document.createElement('div');
     el.className = 'arena'; el.dataset.bot = b.id;
     el.setAttribute('role', 'dialog'); el.setAttribute('aria-modal', 'true'); el.setAttribute('aria-label', `Партия с соперником ${b.name}`);
-    el.innerHTML = `<div class="ar-wrap">
-        <header class="ar-head"><div><h1>Соперник: ${esc(b.name)}</h1><p>${esc(w.name)} · сила ${i + 1} из ${BOTS.length} · награда до ${3 * b.mult}${STAR}</p></div>
-          <div class="ar-acts">${s ? `<span class="ar-me">${Art.avatar(s, 30)}<b>${esc(s.name)}</b><span>белые</span></span>` : ''}<button type="button" class="btn soft ar-x" id="arX">К карте</button></div></header>
+    el.innerHTML = `${landscape(b).replace('class="bot-bg"', 'class="bot-bg ar-bg"')}<div class="ar-wrap">
+        <header class="ar-top"><button type="button" class="btn ar-x" id="arX">${ICON.back}<span>К карте</span></button>
+          <div class="ar-ttl"><h1>Соперник: ${esc(b.name)}</h1><p>${esc(w.name)} · сила ${i + 1} из ${BOTS.length} · награда до ${3 * b.mult}${STAR}</p></div>
+          ${s ? `<span class="ar-me">${Art.avatar(s, 30)}<b>${esc(s.name)}</b><span>белые</span></span>` : ''}</header>
         <div class="ar-main">
-          <section class="ar-world" aria-label="Доска">${landscape(b)}
-            <div class="ar-bw"><div class="board" id="aBoard" tabindex="0" role="application" aria-label="Шахматная доска, вы играете белыми. Стрелки выбирают поле, Enter делает ход." aria-describedby="arStatus"><div class="sqs" id="aSq"></div><div class="pcs" id="aPc"></div></div></div>
+          <div class="ar-bw"><div class="board" id="aBoard" tabindex="0" role="application" aria-label="Шахматная доска, вы играете белыми. Стрелки выбирают поле, Enter делает ход." aria-describedby="arStatus"><div class="sqs" id="aSq"></div><div class="pcs" id="aPc"></div></div></div>
+          <aside class="ar-side">
+            <div class="ar-stage" id="arBot"><div class="ar-say" id="arSay"></div><div class="ar-char">${face(b)}<span class="ar-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><h2 class="ar-name">${esc(b.name)}</h2></div>
             <div class="ar-status" id="arStatus" role="status" aria-live="polite"></div>
-            <div class="ar-toolbox"><div class="ar-tools"><button type="button" class="btn soft" id="arHint">${ICON.bulb}Подсказка</button><button type="button" class="btn soft" id="arUndo">${ICON.reset}Ход назад</button><button type="button" class="btn soft" id="arFlip" aria-pressed="false">${ICON.flip}Перевернуть</button><button type="button" class="btn soft" id="arDraw">Ничья</button><button type="button" class="btn soft" id="arResign">Сдаться</button></div></div>
+            <div class="ar-tools"><button type="button" class="btn" id="arHint">${ICON.bulb}Подсказка</button><button type="button" class="btn" id="arUndo">${ICON.reset}Ход назад</button><button type="button" class="btn" id="arFlip" aria-pressed="false">${ICON.flip}Перевернуть</button><button type="button" class="btn" id="arDraw">Ничья</button><button type="button" class="btn" id="arResign">Сдаться</button></div>
+            <div class="ar-log" title="Подсказка и ход назад отнимают звезду за победу. С клавиатуры: стрелки и Enter.">
+              <div class="ar-lh"><b>Ходы</b><span class="ar-caps"><span class="ar-cap" id="arCapMe" aria-label="Ты взял"></span><span class="ar-cap lost" id="arCapBot" aria-label="${esc(b.name)} взял"></span></span></div>
+              <div class="ar-moves" id="arMoves" aria-label="Записанные ходы"></div></div>
             <span class="ar-sr" id="arKb" aria-live="polite"></span>
-          </section>
-          <aside class="ar-side"><div class="ar-side-in">
-            <div class="ar-stage" id="arBot">${landscape(b)}<div class="ar-char">${face(b)}<span class="ar-dots" aria-hidden="true"><i></i><i></i><i></i></span></div><h2 class="ar-name">${esc(b.name)}</h2><div class="ar-say" id="arSay"></div></div>
-            <div class="ar-log"><h3>Ходы партии</h3><div class="ar-moves" id="arMoves" aria-label="Записанные ходы"></div>
-              <p class="ar-lbl">Взятые фигуры</p>
-              <div class="ar-caps"><div class="ar-caprow"><span>Ты взял</span><div class="ar-cap" id="arCapMe"></div></div><div class="ar-caprow"><span>${esc(b.name)}</span><div class="ar-cap" id="arCapBot"></div></div></div>
-              <p class="ar-note">Перетащи фигуру или нажми на неё, потом на поле. С клавиатуры: стрелки и Enter. Подсказка и ход назад отнимают звезду за победу.</p></div>
-          </div></aside>
+          </aside>
         </div></div>
       <div class="ar-res" id="arRes" hidden></div>`;
     layer.appendChild(el); G.el = el;
     draw(); bindBoard();
     say(b.hi); status(turnText().t);
-    const x = $('#arX'); let armed = 0;
+    const x = $('#arX'), idle = x.innerHTML; let armed = 0;
     x.onclick = () => {
       if (G.over || !G.pos.hist.length || armed) { clearTimeout(armed); Sound.click(); close(); return; }
-      x.textContent = 'Выйти без награды?'; x.classList.add('armed');
-      armed = setTimeout(() => { armed = 0; x.textContent = 'К карте'; x.classList.remove('armed'); }, 3500);
+      x.innerHTML = `${ICON.back}<span>Выйти без награды?</span>`; x.classList.add('armed');
+      armed = setTimeout(() => { armed = 0; x.innerHTML = idle; x.classList.remove('armed'); }, 3500);
     };
     $('#arHint').onclick = hint;
     $('#arUndo').onclick = takeBack;
