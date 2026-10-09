@@ -1,0 +1,74 @@
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="goldG" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset=".45" stop-color="#e2ad34"/><stop offset="1" stop-color="#9c6a0c"/></linearGradient>
+    <g id="keyArt">
+      <circle cx="0" cy="0" r="9" fill="url(#goldG)" stroke="#7a4f08" stroke-width="1.4"/>
+      <circle cx="0" cy="0" r="3.6" fill="#7a4f08"/>
+      <path d="M-2.2 8.4 H2.2 V34 H-2.2 Z" fill="url(#goldG)" stroke="#7a4f08" stroke-width="1.2"/>
+      <path d="M2 22 H8 V26 H2 M2 29 H6.5 V33 H2" fill="url(#goldG)" stroke="#7a4f08" stroke-width="1.2" stroke-linejoin="round"/>
+    </g>
+    <g id="icoCross"><path d="M2 5h12M8 1v14M4 5v6M12 5v6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></g>
+    <g id="icoDoll"><circle cx="8" cy="4.5" r="3" fill="currentColor"/><path d="M8 7.5v5M4 9.5h8M8 12.5l-3 3M8 12.5l3 3" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M8 1.5V0" stroke="currentColor" stroke-width="1"/></g>
+    <g id="icoCrown"><path d="M1.5 12.5 L2.5 4.5 L5.5 8 L8 2.5 L10.5 8 L13.5 4.5 L14.5 12.5 Z" fill="currentColor" stroke="currentColor" stroke-width="1" stroke-linejoin="round"/></g>
+  </defs>
+</svg>
+<div class="hall" aria-hidden="true">
+  <div class="damask"></div>
+  <div class="spot l"></div><div class="spot r"></div>
+  <div class="floor"></div>
+  <svg class="hearth" viewBox="0 0 200 172">
+    <rect class="canvas" x="8" y="8" width="184" height="156" rx="3"/>
+    <rect class="frame" x="5" y="5" width="190" height="162" rx="4"/>
+    <path class="paint" d="M40 150 V70 Q40 40 100 40 Q160 40 160 70 V150"/>
+    <path class="paint" d="M30 150 H170 M52 150 V78 Q52 54 100 54 Q148 54 148 78 V150"/>
+    <path class="paint" d="M70 112 Q100 104 130 112 L126 136 Q100 146 74 136 Z"/>
+    <path class="paint" d="M66 112 H134 M100 60 V104"/>
+    <path class="fire" d="M80 150 Q78 136 88 128 Q86 140 96 138 Q92 126 102 118 Q104 132 112 130 Q118 138 120 150 Z"/>
+    <path class="fire2" d="M92 150 Q92 142 98 138 Q100 144 106 142 Q110 146 108 150 Z"/>
+    <path class="paint" d="M86 98 Q88 90 92 96 M104 94 Q108 86 110 94" style="opacity:.6"/>
+    <path class="hole" d="M150 84 l9 -4 l6 6 l-3 9 l-8 3 l-6 -5 z"/>
+    <path class="glow" d="M153 86 h7 v9 h-7 z"/>
+    <path class="paint" d="M160 88 l14 -6" style="stroke-width:1.4;opacity:.6"/>
+  </svg>
+  <div class="curtain l"><i class="tie"></i></div>
+  <div class="curtain r"><i class="tie"></i></div>
+  <div class="valance"></div>
+</div>
+<div id="app">
+  <header class="bar">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <rect x="8" y="1" width="32" height="5" rx="2" fill="#c79a55" stroke="#5b3a22" stroke-width="1.2"/>
+        <rect x="21.5" y="-3" width="5" height="14" rx="2" fill="#c79a55" stroke="#5b3a22" stroke-width="1.2"/>
+        <g class="key">
+          <path d="M12 4 L22 14 M36 4 L26 14 M24 6 V14" stroke="#fbecd0" stroke-width="1" opacity=".85"/>
+          <g transform="translate(24 21) scale(.72)"><use href="#keyArt"/></g>
+        </g>
+      </svg>
+      <div><b>Театр Карабаса</b><span>связка и сквозной удар</span></div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Главы урока"></nav>
+    <div class="tools">
+      <span class="stars" id="stars" aria-live="polite"></span>
+      <button type="button" class="icon-btn" id="soundBtn" aria-pressed="true" aria-label="Звук" title="Звук"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button type="button" class="icon-btn" id="notesBtn" aria-label="Заметки ведущему" title="Заметки ведущему"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h7M9 15h7M9 7h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </header>
+  <main class="stage">
+    <div class="board-col">
+      <div class="board-frame" id="frame"><i class="nail a"></i><i class="nail b"></i><i class="nail c"></i><i class="nail d"></i><div class="board" id="board"></div></div>
+      <div class="plank" aria-label="Ходы"><span class="lead">ходы</span><span class="tm" id="tapeMoves"></span></div>
+    </div>
+    <section class="card" id="card" aria-live="polite"></section>
+  </main>
+</div>
+<aside class="drawer" id="drawer" aria-label="Заметки ведущему">
+  <button type="button" class="icon-btn close" id="drawerClose" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <h3>Ведущему</h3>
+  <div id="notes"></div>
+</aside>
+<div class="intro" id="intro" aria-hidden="true">
+  <div class="half l"></div><div class="half r"></div>
+  <div class="bill"><small>третий звонок</small>Театр Карабаса</div>
+</div>
+<canvas id="petals" aria-hidden="true"></canvas>
