@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script>
+/* Academy bridge: lets a lesson running inside «Звёздная академия» report stars per student.
+   Standalone (no academy) the lesson behaves exactly as before: window.Academy.on === false. */
+(function () {
+  var L = 'L09';
+  var embed = false;
+  try { embed = !!window.ACADEMY_EMBED || /[?&]academy=1/.test(location.search); } catch (e) { embed = false; }
+  if (embed && window.parent === window) embed = false;
+  var roster = [], tablo = {}, subs = [];
+  function post(m) { m.__academy = 1; m.lesson = L; try { window.parent.postMessage(m, '*'); } catch (e) { /* parent unreachable */ } }
+  function emit() { subs.slice().forEach(function (f) { try { f(); } catch (e) { /* listener error */ } }); }
+  var A = {
+    on: embed,
+    lesson: L,
+    roster: function () { return roster; },
+    tablo: function () { return tablo; },
+    onRoster: function (f) { subs.push(f); },
+    /* key: chapter id for 'best' (keeps the student's best result), or null for 'add' (adds up) */
+    reward: function (key, n, label, mode) {
+      if (!embed) return;
+      n = Math.round(+n || 0); if (n <= 0) return;
+      post({ type: 'reward', key: key, n: n, label: String(label || ''), mode: mode || 'best' });
+    },
+    points: function (id, d) {
+      if (!embed) return;
+      var was = tablo[id] || 0, now = Math.max(0, was + (Math.round(+d) || 0));
+      if (now === was) return;
+      tablo[id] = now; emit();
+      post({ type: 'points', student: id, d: now - was });
+    },
+    addStudent: function (name) { if (embed) post({ type: 'add-student', name: String(name || '').slice(0, 40) }); },
+    rename: function (id, name) { if (embed) post({ type: 'rename', student: id, name: String(name || '').slice(0, 40) }); },
+    download: function (filename, data) { if (embed) post({ type: 'download', filename: filename, data: data }); },
+    scores: function () {
+      return {
+        list: function () { return roster.map(function (s) { return { id: s.id, n: s.name, s: tablo[s.id] || 0 }; }); },
+        sorted: function () { return this.list().sort(function (a, b) { return b.s - a.s; }); },
+        isExample: function () { return false; },
+        add: function (n) { A.addStudent(n); },
+        inc: function (id, d) { A.points(id, d); },
+        rename: function (id, n) { var r = roster.find(function (x) { return x.id === id; }); if (r) r.name = n; A.rename(id, n); },
+        remove: function () {}, zero: function () {}, clear: function () {},
+        on: function (f) { subs.push(function () { f(); }); }
+      };
+    }
+  };
+  window.Academy = A;
+  if (!embed) return;
+  document.documentElement.classList.add('academy');
+  var st = document.createElement('style');
+  st.textContent = '.academy #sc-zero,.academy #sc-clear,.academy .sc-row .x{display:none!important}.academy .sc-row{grid-template-columns:22px 1fr auto auto auto!important}';
+  (document.head || document.documentElement).appendChild(st);
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || !d.__academy || e.source !== window.parent) return;
+    if (d.type === 'roster') { roster = Array.isArray(d.students) ? d.students : []; tablo = d.tablo || {}; emit(); }
+  });
+  post({ type: 'hello' });
+})();
+</script>
+<title>Ничья из шляпы</title>
+<meta name="description" content="Шахматный урок-представление на 90 минут о спасительных ресурсах: пат, бешеная ладья, вечный шах, не тот слон и позиция Сааведры. Deep Blue — Каспаров, Эванс — Решевский и другие истории.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yeseva+One&family=Ruslan+Display&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>[hidden]{display:none!important}</style>
+</head>
+<body>
+<style>
+/* «Ничья из шляпы» — a magician's evening: velvet, gold, marquee bulbs, playing cards, stardust */
+:root {
+  --bg: #f4eadb;
+  --bg-2: #ead9c2;
+  --velvet: #8f1b2f;
+  --velvet-2: #6c1222;
+  --card: #fffaf1;
+  --card-2: #f6ead6;
+  --ink: #2a1426;
+  --muted: #6e5562;
+  --line: rgba(42, 20, 38, .14);
+  --line-2: rgba(42, 20, 38, .3);
+  --crimson: #b3203a;
+  --crimson-soft: rgba(179, 32, 58, .12);
+  --gold: #b07f16;
+  --gold-hi: #e6b847;
+  --gold-soft: rgba(176, 127, 22, .15);
+  --ice: #1f74a3;
+  --ice-soft: rgba(31, 116, 163, .14);
+  --mint: #23774b;
+  --mint-soft: rgba(35, 119, 75, .14);
+  --plum: #5a2d82;
+  --plum-soft: rgba(90, 45, 130, .12);
+  --sq-l: #f3e3c6;
+  --sq-d: #a2525d;
+  --frame: #2b1028;
+  --shadow: 0 22px 40px -26px rgba(70, 12, 30, .55);
+  --f-head: 'Yeseva One', 'Georgia', serif;
+  --f-show: 'Ruslan Display', 'Yeseva One', 'Georgia', serif;
+  --f-body: 'Nunito', 'Trebuchet MS', 'Segoe UI', sans-serif;
+  --bar: 66px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #14081a; --bg-2: #1e0d26; --velvet: #5e0f22; --velvet-2: #3d0816;
+    --card: #fbf2e0; --card-2: #f0e1c6; --ink: #2a1426; --muted: #6e5562;
+    --line: rgba(42, 20, 38, .14); --line-2: rgba(42, 20, 38, .3);
+    --page-ink: #f5e7cf; --page-muted: #c2a9b8; --page-line: rgba(245, 231, 207, .16); --page-line-2: rgba(245, 231, 207, .32);
+    --crimson: #b3203a; --gold: #a87710; --gold-hi: #f2c65a; --ice: #1f74a3; --mint: #23774b; --plum: #5a2d82;
+    --sq-l: #f1dfbf; --sq-d: #93424f; --frame: #0d0410;
+    --shadow: 0 26px 46px -22px rgba(0, 0, 0, .9);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #14081a; --bg-2: #1e0d26; --velvet: #5e0f22; --velvet-2: #3d0816;
+  --card: #fbf2e0; --card-2: #f0e1c6; --ink: #2a1426; --muted: #6e5562;
+  --line: rgba(42, 20, 38, .14); --line-2: rgba(42, 20, 38, .3);
+  --page-ink: #f5e7cf; --page-muted: #c2a9b8; --page-line: rgba(245, 231, 207, .16); --page-line-2: rgba(245, 231, 207, .32);
+  --crimson: #b3203a; --gold: #a87710; --gold-hi: #f2c65a; --ice: #1f74a3; --mint: #23774b; --plum: #5a2d82;
+  --sq-l: #f1dfbf; --sq-d: #93424f; --frame: #0d0410;
+  --shadow: 0 26px 46px -22px rgba(0, 0, 0, .9);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; color: var(--page-ink, var(--ink)); font-family: var(--f-body); font-size: 17px; line-height: 1.45; -webkit-font-smoothing: antialiased;
+  background:
+    conic-gradient(from 166deg at 50% -4%, transparent 0deg, rgba(255, 230, 160, .14) 14deg, transparent 28deg),
+    radial-gradient(60% 45% at 50% 0%, rgba(255, 226, 150, .28), transparent 70%),
+    repeating-linear-gradient(90deg, rgba(0, 0, 0, 0) 0 46px, rgba(0, 0, 0, .035) 46px 70px, rgba(0, 0, 0, 0) 70px 92px),
+    var(--bg);
+  background-attachment: fixed;
+}
+button { font: inherit; color: inherit; }
+a { color: var(--ice); }
+:focus-visible { outline: 2px solid var(--gold-hi); outline-offset: 2px; }
+h1, h2, h3 { margin: 0; text-wrap: balance; font-weight: 400; }
+p { margin: 0; }
+
+/* stardust layer */
+.dust { position: fixed; inset: 0; pointer-events: none; z-index: 0; opacity: .55;
+  background-image:
+    radial-gradient(1.6px 1.6px at 12% 22%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.2px 1.2px at 32% 68%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.8px 1.8px at 74% 18%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.2px 1.2px at 86% 62%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.4px 1.4px at 55% 88%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.2px 1.2px at 6% 82%, var(--gold-hi), transparent 60%),
+    radial-gradient(1.5px 1.5px at 94% 90%, var(--gold-hi), transparent 60%);
+  animation: twinkle 4.5s ease-in-out infinite alternate; }
+.dust.b { background-position: 40px 70px; animation-delay: -2.2s; animation-duration: 5.5s; }
+@keyframes twinkle { from { opacity: .15; } to { opacity: .7; } }
+
+/* top drape */
+.drape { position: fixed; left: 0; right: 0; top: 0; height: 26px; z-index: 30; pointer-events: none;
+  background: radial-gradient(18px 16px at 18px 0, var(--velvet) 15px, transparent 16px) 0 0 / 36px 26px repeat-x;
+  filter: drop-shadow(0 3px 2px rgba(0, 0, 0, .25)); }
+.drape::after { content: ""; position: absolute; left: 0; right: 0; top: 0; height: 6px; background: linear-gradient(var(--velvet-2), var(--velvet)); }
+.fringe { position: fixed; left: 0; right: 0; top: 0; height: 32px; z-index: 29; pointer-events: none;
+  background: repeating-linear-gradient(90deg, var(--gold-hi) 0 2px, transparent 2px 6px); -webkit-mask: linear-gradient(transparent 22px, #000 22px 30px, transparent 30px); mask: linear-gradient(transparent 22px, #000 22px 30px, transparent 30px); opacity: .8; }
+
+#app { position: relative; z-index: 1; min-height: 100%; display: grid; grid-template-rows: var(--bar) minmax(0, 1fr); padding: 26px 16px 0; }
+
+/* ---------- opening curtain ---------- */
+.curtain { position: fixed; inset: 0; z-index: 90; pointer-events: none; display: grid; grid-template-columns: 1fr 1fr; }
+.curtain i { display: block; height: 100%;
+  background: radial-gradient(120% 60% at 50% 0%, rgba(255, 210, 140, .18), transparent 60%), repeating-linear-gradient(90deg, var(--velvet-2) 0 10px, var(--velvet) 22px, #b3283f 30px, var(--velvet) 40px, var(--velvet-2) 52px);
+  box-shadow: inset 0 -30px 0 -18px var(--gold-hi); transition: transform 1.25s cubic-bezier(.7, 0, .25, 1); }
+.curtain.open i:first-child { transform: translateX(-102%); }
+.curtain.open i:last-child { transform: translateX(102%); }
+.curtain .bill { position: absolute; left: 50%; top: 50%; translate: -50% -50%; text-align: center; color: #fbe9c4; font-family: var(--f-show); font-size: clamp(30px, 6vw, 70px); letter-spacing: .04em; text-shadow: 0 3px 0 rgba(0, 0, 0, .35); transition: opacity .4s; white-space: nowrap; }
+.curtain .bill small { display: block; font-family: var(--f-head); font-size: .32em; letter-spacing: .2em; opacity: .85; }
+.curtain.open .bill { opacity: 0; }
+.curtain.gone { display: none; }
+
+/* ---------- header ---------- */
+.bar { position: relative; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 16px; }
+.logo { display: flex; align-items: center; gap: 10px; }
+.logo svg { width: 44px; height: 44px; flex: none; }
+.logo b { font-family: var(--f-show); font-weight: 400; font-size: 26px; letter-spacing: .03em; line-height: 1; color: var(--page-ink, var(--crimson)); }
+.logo span { display: block; font-size: 13px; color: var(--page-muted, var(--muted)); letter-spacing: .04em; font-weight: 700; text-transform: uppercase; margin-top: 3px; }
+.tabs { display: flex; gap: 5px; overflow-x: auto; scrollbar-width: none; align-items: center; padding: 4px 2px; }
+.tabs::-webkit-scrollbar { display: none; }
+.tabs > :first-child { margin-left: auto; }
+.tabs > :last-child { margin-right: auto; }
+.tabs button { flex: none; height: 38px; min-width: 38px; border: 1.5px solid var(--page-line-2, var(--line-2)); background: transparent; border-radius: 19px; padding: 0 12px; cursor: pointer; font-family: var(--f-head); font-size: 17px; color: var(--page-muted, var(--muted)); display: flex; align-items: center; gap: 7px; white-space: nowrap; transition: background .2s, color .2s, border-color .2s; }
+.tabs button .tl { font-family: var(--f-body); font-weight: 800; font-size: 14px; display: none; }
+.tabs button .lv { display: inline-flex; gap: 1px; }
+.tabs button .lv i { width: 7px; height: 7px; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); background: var(--page-line-2, var(--line-2)); }
+.tabs button .lv i.on { background: var(--gold-hi); }
+.tabs button:hover { color: var(--page-ink, var(--ink)); border-color: var(--gold-hi); }
+.tabs button[aria-current="true"] { background: var(--crimson); color: #fff6e6; border-color: var(--crimson); box-shadow: 0 0 0 3px rgba(242, 198, 90, .35); }
+.tabs button[aria-current="true"] .tl { display: inline; }
+.tools { display: flex; align-items: center; gap: 8px; }
+.stars { display: flex; align-items: center; gap: 6px; font-weight: 800; font-size: 15px; padding: 5px 12px 5px 8px; border: 1.5px solid var(--page-line-2, var(--line-2)); border-radius: 18px; white-space: nowrap; color: var(--page-muted, var(--muted)); }
+.stars svg { width: 22px; height: 22px; color: var(--gold-hi); }
+.stars b { font-family: var(--f-head); font-weight: 400; font-size: 20px; color: var(--page-ink, var(--ink)); }
+.stars.bump svg { animation: spin .7s cubic-bezier(.2, 1.4, .4, 1); }
+@keyframes spin { from { transform: rotate(-180deg) scale(.4); } to { transform: none; } }
+.icon-btn { width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--page-line-2, var(--line-2)); background: transparent; cursor: pointer; display: grid; place-items: center; color: var(--page-muted, var(--muted)); }
+.icon-btn:hover { color: var(--page-ink, var(--ink)); border-color: var(--gold-hi); }
+.icon-btn svg { width: 18px; height: 18px; }
+.icon-btn[aria-pressed="false"] { opacity: .5; }
+
+/* ---------- stage ---------- */
+.stage { --bs: min(calc(100vh - var(--bar) - 130px), 52vw, 640px); display: grid; grid-template-columns: var(--bs) minmax(300px, 450px); justify-content: center; align-items: center; gap: 34px; padding-block: 24px 22px; min-height: 0; position: relative; }
+.board-col { width: var(--bs); display: flex; flex-direction: column; gap: 12px; }
+.board-frame { width: 100%; aspect-ratio: 1; padding: 22px; position: relative; border-radius: 14px; box-shadow: var(--shadow), 0 0 0 2px var(--gold), inset 0 0 0 2px rgba(242, 198, 90, .35);
+  background: linear-gradient(145deg, #3a1436, var(--frame) 60%); }
+.board-frame::before, .board-frame::after { content: ""; position: absolute; inset: 6px; border-radius: 10px; pointer-events: none;
+  --bulb: radial-gradient(circle, #fff6d2 0 2.4px, rgba(255, 210, 110, .75) 3.2px, rgba(255, 190, 80, 0) 6px);
+  background: var(--bulb) 0 0 / 22px 12px repeat-x, var(--bulb) 0 100% / 22px 12px repeat-x, var(--bulb) 0 0 / 12px 22px repeat-y, var(--bulb) 100% 0 / 12px 22px repeat-y; }
+.board-frame::after { background-position: 11px 0, 11px 100%, 0 11px, 100% 11px; animation: chase 1.1s steps(1) infinite; }
+.board-frame::before { animation: chase 1.1s steps(1) infinite reverse; }
+@keyframes chase { 0% { opacity: 1; } 50% { opacity: .18; } }
+.board-frame.party::before, .board-frame.party::after { animation-duration: .28s; }
+.board { position: relative; width: 100%; height: 100%; display: grid; grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr); user-select: none; -webkit-user-select: none; touch-action: none; overflow: hidden; background: var(--sq-l); border-radius: 3px; }
+.sq { position: relative; display: grid; place-items: center; }
+.sq.l { background: var(--sq-l); }
+.sq.d { background: var(--sq-d); }
+.board.clicky .sq { cursor: pointer; }
+.sq.last::before, .sq.sel::before, .sq.check::before, .sq[data-mark]:not([data-mark=""])::before { content: ""; position: absolute; inset: 0; pointer-events: none; }
+.sq.last::before { background: rgba(255, 214, 102, .42); }
+.sq.sel::before { background: rgba(90, 45, 130, .4); }
+.sq.check::before { background: radial-gradient(circle, rgba(230, 30, 50, .8), rgba(230, 30, 50, 0) 72%); }
+.sq[data-mark="x"]::after { content: "✕"; position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; font-weight: 800; font-size: clamp(16px, 3.4vmin, 30px); color: #b3203a; text-shadow: 0 0 6px #fff; animation: xin .35s cubic-bezier(.2, 1.5, .4, 1) backwards; animation-delay: calc(var(--i, 0) * 90ms); pointer-events: none; }
+.sq[data-mark="xi"]::after { content: "✕"; position: absolute; inset: 0; display: grid; place-items: center; z-index: 3; font-weight: 800; font-size: clamp(16px, 3.4vmin, 30px); color: #1f74a3; text-shadow: 0 0 6px #fff; animation: xin .35s cubic-bezier(.2, 1.5, .4, 1) backwards; animation-delay: calc(var(--i, 0) * 90ms); pointer-events: none; }
+@keyframes xin { from { transform: scale(2.2) rotate(-40deg); opacity: 0; } to { transform: none; opacity: 1; } }
+.sq[data-mark="frozen"]::before { background: radial-gradient(circle, rgba(120, 210, 255, .9), rgba(120, 210, 255, 0) 72%); animation: frost 1.4s ease-in-out infinite alternate; }
+.sq[data-mark="mated"]::before { background: radial-gradient(circle, rgba(230, 30, 50, .9), rgba(230, 30, 50, 0) 72%); }
+@keyframes frost { from { filter: brightness(1); } to { filter: brightness(1.35) saturate(1.3); } }
+.sq[data-mark="pick"]::before { box-shadow: inset 0 0 0 4px var(--plum); }
+.sq[data-mark="gold"]::before { box-shadow: inset 0 0 0 4px var(--gold-hi); background: rgba(242, 198, 90, .3); }
+.sq[data-mark="beamd"]::before { background: rgba(90, 45, 130, .45); animation: xin2 .45s ease-out backwards; animation-delay: calc(var(--i, 0) * 28ms); }
+.sq[data-mark="beaml"]::before { background: rgba(242, 198, 90, .55); animation: xin2 .45s ease-out backwards; animation-delay: calc(var(--i, 0) * 28ms); }
+@keyframes xin2 { from { opacity: 0; } }
+.sq[data-mark="corner"]::before { box-shadow: inset 0 0 0 5px var(--gold-hi); animation: cornerp 1s ease-in-out infinite alternate; }
+@keyframes cornerp { to { box-shadow: inset 0 0 0 9px var(--gold-hi); } }
+.sq.dot::after { content: ""; position: absolute; width: 24%; height: 24%; border-radius: 50%; background: rgba(42, 20, 38, .4); pointer-events: none; }
+.sq.cap::after { content: ""; position: absolute; inset: 6%; border-radius: 50%; border: 4px solid rgba(42, 20, 38, .4); pointer-events: none; }
+.co { position: absolute; font-size: clamp(9px, 1.15vmin, 12px); line-height: 1; pointer-events: none; z-index: 1; font-weight: 800; }
+.sq.l .co { color: #a2525d; }
+.sq.d .co { color: #f6e3c4; }
+.co-r { top: 3px; left: 3px; }
+.co-f { bottom: 2px; right: 3px; }
+.pc { width: 90%; height: 90%; position: relative; z-index: 2; pointer-events: none; }
+.pc.anim { transition: transform .24s cubic-bezier(.3, .7, .4, 1); }
+.pc.lift { opacity: .3; }
+.pc.pop { animation: pop .35s cubic-bezier(.2, 1.4, .5, 1); }
+.pc.vanish { animation: vanish .6s ease-in forwards; }
+@keyframes pop { from { transform: scale(.3); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes vanish { 40% { transform: scale(1.15) rotate(8deg); opacity: 1; } to { transform: scale(.1) rotate(-30deg) translateY(-30%); opacity: 0; } }
+.drag-ghost { position: fixed; z-index: 100; pointer-events: none; transform: translate(-50%, -50%) scale(1.08); }
+.board .ov { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.ov .beam { animation: beam .5s ease-out backwards; }
+@keyframes beam { from { opacity: 0; } }
+.board-frame.flash-bad { animation: fbad .6s; }
+@keyframes fbad { 30% { box-shadow: 0 0 0 6px #b3203a, var(--shadow); } }
+.board-frame.flash-ok { animation: fok .8s; }
+@keyframes fok { 30% { box-shadow: 0 0 0 6px var(--gold-hi), var(--shadow); } }
+.promo { position: absolute; inset: 0; z-index: 5; background: rgba(20, 6, 22, .62); display: grid; place-items: center; }
+.promo-box { display: flex; gap: 8px; padding: 10px; }
+.promo-box button { width: 64px; height: 92px; border: 2px solid var(--gold-hi); background: linear-gradient(#fffaf0, #f2e2c4); border-radius: 8px; cursor: pointer; box-shadow: 0 8px 18px -8px rgba(0, 0, 0, .7); animation: dealin .35s cubic-bezier(.2, 1.3, .4, 1) backwards; transition: transform .15s; }
+.promo-box button:nth-child(2) { animation-delay: .06s; }
+.promo-box button:nth-child(3) { animation-delay: .12s; }
+.promo-box button:nth-child(4) { animation-delay: .18s; }
+.promo-box button:hover { transform: translateY(-6px) rotate(-2deg); }
+.promo-box svg { width: 100%; height: 70%; }
+@keyframes dealin { from { transform: translateY(40px) rotate(10deg); opacity: 0; } }
+
+/* smoke puff and stardust */
+.puff { position: fixed; z-index: 85; pointer-events: none; width: 10px; height: 10px; translate: -50% -50%; }
+.puff i { position: absolute; left: 50%; top: 50%; width: var(--s); height: var(--s); margin: calc(var(--s) / -2); border-radius: 50%; background: radial-gradient(circle at 35% 35%, rgba(255, 255, 255, .95), rgba(214, 200, 228, .8) 45%, rgba(160, 140, 190, 0) 72%); animation: puff .9s ease-out forwards; animation-delay: var(--d); }
+@keyframes puff { from { transform: translate(0, 0) scale(.2); opacity: .95; } to { transform: translate(var(--x), var(--y)) scale(1.4); opacity: 0; } }
+#sparkle { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 80; }
+
+/* bulbs under the board: move list */
+.marquee { position: relative; height: 40px; margin-inline: 8px; border-radius: 20px; background: linear-gradient(#3a1436, #22091f); border: 1.5px solid var(--gold); display: flex; align-items: center; overflow: hidden; padding-inline: 16px; font-size: 15px; color: #fbe9c4; white-space: nowrap; box-shadow: inset 0 0 12px rgba(0, 0, 0, .6); }
+.marquee .tm { display: flex; gap: 11px; margin-left: auto; }
+.marquee .n { color: #d9a441; margin-right: 2px; }
+.marquee .lead { font-family: var(--f-head); color: var(--gold-hi); letter-spacing: .06em; font-size: 14px; }
+
+/* ---------- card (playbill) ---------- */
+.card { position: relative; background: var(--card); color: var(--ink); padding: 30px 26px 22px; box-shadow: var(--shadow), 0 0 0 1px var(--gold), 0 0 0 7px var(--card), 0 0 0 8px var(--gold); display: flex; flex-direction: column; gap: 14px; min-width: 0; border-radius: 4px; margin: 8px; }
+.card > * { animation: rise .45s cubic-bezier(.2, .9, .3, 1) backwards; }
+.card > :nth-child(2) { animation-delay: .05s; }
+.card > :nth-child(3) { animation-delay: .1s; }
+.card > :nth-child(4) { animation-delay: .15s; }
+.card > :nth-child(n+5) { animation-delay: .2s; }
+@keyframes rise { from { transform: translateY(10px); opacity: 0; } }
+.card .corner { position: absolute; width: 22px; height: 22px; color: var(--gold); }
+.card .corner.tl { left: 6px; top: 6px; }
+.card .corner.tr { right: 6px; top: 6px; transform: scaleX(-1); }
+.card .corner.bl { left: 6px; bottom: 6px; transform: scaleY(-1); }
+.card .corner.br { right: 6px; bottom: 6px; transform: scale(-1); }
+.kicker { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; font-weight: 800; color: var(--muted); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.kicker b { color: var(--crimson); font-weight: 800; }
+.title { font-family: var(--f-head); font-size: clamp(30px, 2.8vw, 40px); line-height: 1.04; color: var(--crimson); }
+.task { font-size: 17px; line-height: 1.45; }
+.task b { color: var(--crimson); }
+.note { border-left: 3px solid var(--gold); padding: 2px 0 2px 12px; color: var(--muted); font-size: 16px; }
+.note b { color: var(--ink); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1.5px solid var(--ink); background: transparent; color: var(--ink); padding: 9px 17px; border-radius: 22px; cursor: pointer; font-weight: 800; font-size: 15px; line-height: 1.1; transition: background .15s, color .15s, transform .1s, box-shadow .15s; }
+.btn:hover { background: var(--card-2); }
+.btn:active { transform: translateY(1px); }
+.btn:disabled { opacity: .4; cursor: default; }
+.btn.primary { background: var(--crimson); border-color: var(--crimson); color: #fff6e6; box-shadow: 0 6px 14px -8px rgba(179, 32, 58, .9); }
+.btn.primary:hover { background: #8f1b2f; }
+.btn.hint { border-style: dashed; color: var(--plum); border-color: var(--plum); }
+.btn.big { padding: 13px 24px; font-size: 16px; }
+.btn.armed { background: var(--crimson); border-color: var(--crimson); color: #fff; }
+.fb { min-height: 50px; display: flex; align-items: center; gap: 10px; padding: 9px 12px; background: var(--card-2); border-radius: 8px; font-size: 16px; }
+.fb:empty { background: transparent; min-height: 0; padding: 0; }
+.fb[data-type="ok"] { background: var(--mint-soft); }
+.fb[data-type="bad"] { background: var(--crimson-soft); }
+.fb[data-type="warn"] { background: var(--plum-soft); }
+.fb[data-type="info"] { background: var(--ice-soft); }
+.fb-mark { flex: none; width: 24px; height: 24px; display: grid; place-items: center; font-size: 13px; font-weight: 800; border: 1.5px solid currentColor; border-radius: 50%; }
+.fb[data-type="ok"] .fb-mark { color: var(--mint); }
+.fb[data-type="bad"] .fb-mark { color: var(--crimson); }
+.fb[data-type="warn"] .fb-mark { color: var(--plum); }
+.fb[data-type="info"] .fb-mark { color: var(--ice); }
+.fb b { color: var(--crimson); }
+.shake { animation: shake .35s; }
+@keyframes shake { 20% { transform: translateX(-5px); } 45% { transform: translateX(5px); } 70% { transform: translateX(-2px); } 100% { transform: none; } }
+.pips { display: flex; gap: 6px; }
+.pips i { width: 14px; height: 14px; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); background: var(--line-2); }
+.pips i.done { background: var(--gold); }
+.pips i.miss { background: var(--crimson); }
+.pips i.now { background: var(--ink); }
+
+/* fact card (flip) */
+.fact { perspective: 900px; }
+.fact button { width: 100%; border: 0; padding: 0; background: none; cursor: pointer; text-align: left; }
+.fact .inner { position: relative; display: grid; transition: transform .6s cubic-bezier(.3, .8, .3, 1); transform-style: preserve-3d; }
+.fact.open .inner { transform: rotateY(180deg); }
+.fact .face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 10px; padding: 12px 14px; }
+.fact .front { background: radial-gradient(circle at 18px 50%, rgba(242, 198, 90, .35), transparent 40px), repeating-linear-gradient(45deg, #9c1a31 0 6px, #ad2139 6px 12px); color: #fff6e6; display: flex; align-items: center; gap: 12px; box-shadow: inset 0 0 0 2px var(--gold-hi), inset 0 0 0 5px #9c1a31, inset 0 0 0 6px rgba(242, 198, 90, .5); min-height: 56px; }
+.fact .front svg { width: 30px; height: 30px; flex: none; color: var(--gold-hi); }
+.fact .front b { font-family: var(--f-head); font-weight: 400; font-size: 19px; }
+.fact .front span { font-size: 13px; opacity: .85; display: block; }
+.fact .back { transform: rotateY(180deg); background: var(--card-2); border: 1.5px solid var(--gold); font-size: 14px; line-height: 1.4; }
+.fact .back b { color: var(--crimson); }
+
+/* playing-card answers */
+.deck { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.deck.two { grid-template-columns: 1fr 1fr; }
+.pcard { position: relative; aspect-ratio: 5 / 6.4; border-radius: 10px; border: 1.5px solid var(--line-2); background: linear-gradient(#fffdf8, #f6ead6); cursor: pointer; display: grid; place-items: center; align-content: center; gap: 2px; padding: 8px 4px; box-shadow: 0 10px 18px -14px rgba(42, 20, 38, .8); transition: transform .18s cubic-bezier(.2, 1.4, .4, 1), box-shadow .18s; }
+.pcard:hover { transform: translateY(-5px) rotate(-1.5deg); box-shadow: 0 16px 22px -14px rgba(42, 20, 38, .8); }
+.pcard .suit { font-size: 34px; line-height: 1; }
+.pcard .lbl { font-family: var(--f-head); font-size: 19px; line-height: 1.05; text-align: center; }
+.pcard small { font-size: 12px; color: var(--muted); text-align: center; line-height: 1.2; }
+.pcard .pip { position: absolute; font-size: 13px; font-weight: 800; line-height: 1; }
+.pcard .pip.a { left: 7px; top: 6px; }
+.pcard .pip.b { right: 7px; bottom: 6px; transform: rotate(180deg); }
+.pcard.red { color: var(--crimson); }
+.pcard.blk { color: var(--ink); }
+.pcard.ice { color: var(--ice); }
+.pcard.right { background: linear-gradient(#f2fff6, #d7f1e0); border-color: var(--mint); box-shadow: 0 0 0 3px var(--mint-soft); animation: cardwin .6s cubic-bezier(.2, 1.4, .4, 1); }
+.pcard.wrong { background: var(--crimson-soft); border-color: var(--crimson); animation: shake .35s; }
+.pcard.dim { opacity: .45; }
+.pcard:disabled { cursor: default; }
+.pcard:disabled:hover { transform: none; }
+@keyframes cardwin { 40% { transform: translateY(-10px) rotateY(180deg) scale(1.04); } to { transform: none; } }
+.deck.two .pcard { aspect-ratio: auto; min-height: 88px; }
+
+/* epoch cards (time machine) */
+.epochs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.epoch { perspective: 800px; }
+.epoch .inner { position: relative; display: grid; transition: transform .6s cubic-bezier(.3, .8, .3, 1); transform-style: preserve-3d; }
+.epoch.open .inner { transform: rotateY(180deg); }
+.epoch .face { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; border-radius: 10px; padding: 7px 10px; min-height: 70px; display: grid; gap: 4px; align-content: start; }
+.epoch .front { background: var(--card-2); border: 1.5px solid var(--line-2); }
+.epoch .front b { font-family: var(--f-head); font-weight: 400; font-size: 16px; color: var(--crimson); line-height: 1.05; }
+.epoch .front .opts { display: flex; flex-wrap: wrap; gap: 4px; }
+.epoch .front .opts button { border: 1px solid var(--line-2); background: var(--card); border-radius: 12px; padding: 3px 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+.epoch .front .opts button:hover { border-color: var(--crimson); color: var(--crimson); }
+.epoch .back { transform: rotateY(180deg); background: var(--ink); color: #fbe9c4; font-size: 13px; line-height: 1.32; display: block; }
+.epoch .back b { font-family: var(--f-head); font-weight: 400; font-size: 16px; color: var(--gold-hi); display: block; margin-bottom: 2px; }
+.epoch .back.ok { box-shadow: inset 0 0 0 3px #3fb47a; }
+.epoch .back.no { box-shadow: inset 0 0 0 3px #e0485c; }
+
+/* program (prologue) */
+.program { list-style: none; padding: 0; margin: 0; display: grid; gap: 3px; counter-reset: n; }
+.program li { display: grid; grid-template-columns: 26px 1fr auto; gap: 8px; align-items: baseline; font-size: 15px; border-bottom: 1px dotted var(--line-2); padding: 3px 0; }
+.program li::before { counter-increment: n; content: counter(n); font-family: var(--f-head); color: var(--gold); font-size: 17px; }
+.program li span { color: var(--muted); font-size: 13px; }
+.tricks { display: flex; gap: 8px; flex-wrap: wrap; }
+.prog { display: flex; flex-wrap: wrap; gap: 5px; }
+.prog span { font-size: 12px; font-weight: 800; padding: 2px 8px; border-radius: 12px; background: var(--card-2); border: 1px solid var(--line); }
+.prog span i { font-style: normal; color: var(--gold); margin-right: 4px; font-family: var(--f-head); }
+
+/* juggler (perpetual) */
+.juggler { display: flex; align-items: center; gap: 14px; padding: 8px 12px; border-radius: 10px; background: var(--card-2); }
+.juggler svg { width: 78px; height: 70px; flex: none; overflow: visible; }
+.juggler .ball { transform-box: view-box; opacity: 0; }
+.juggler.on .ball { opacity: 1; }
+.juggler.on .ball { animation: juggle 1.1s linear infinite; }
+.juggler.on .ball:nth-of-type(2) { animation-delay: -.37s; }
+.juggler.on .ball:nth-of-type(3) { animation-delay: -.73s; }
+@keyframes juggle { 0% { transform: translate(-8px, 0); opacity: 0; } 10% { opacity: 1; } 30% { transform: translate(-18px, -36px); } 50% { transform: translate(0, -46px); } 70% { transform: translate(18px, -36px); } 90% { opacity: 1; } 100% { transform: translate(8px, 0); opacity: 0; } }
+.juggler .lamps { display: flex; gap: 6px; }
+.juggler .lamps i { width: 16px; height: 16px; border-radius: 50%; background: var(--line-2); box-shadow: inset 0 -2px 0 rgba(0, 0, 0, .15); transition: background .3s, box-shadow .3s; }
+.juggler .lamps i.on { background: var(--gold-hi); box-shadow: 0 0 10px var(--gold-hi); }
+.juggler p { font-size: 14px; color: var(--muted); }
+.juggler p b { color: var(--ink); font-family: var(--f-head); font-weight: 400; font-size: 17px; display: block; }
+
+/* hat & rabbit finish */
+.finale { display: grid; grid-template-columns: 96px 1fr; gap: 14px; align-items: center; }
+.hat { width: 96px; height: 110px; overflow: visible; }
+.hat .rabbit { animation: rabbit 1s .35s cubic-bezier(.2, 1.5, .4, 1) backwards; }
+@keyframes rabbit { from { transform: translateY(46px); } }
+.hat .wand { transform-origin: 78px 20px; animation: wand .9s ease-in-out 2; }
+@keyframes wand { 50% { transform: rotate(-24deg); } }
+.starrow { display: flex; gap: 8px; }
+.starrow svg { width: 44px; height: 44px; color: var(--gold-hi); filter: drop-shadow(0 2px 2px rgba(120, 70, 0, .35)); animation: starin .5s cubic-bezier(.2, 1.5, .5, 1) backwards; }
+.starrow svg:nth-child(2) { animation-delay: .14s; }
+.starrow svg:nth-child(3) { animation-delay: .28s; }
+.starrow svg.off { color: var(--line-2); filter: none; }
+@keyframes starin { from { transform: scale(.2) rotate(-120deg); opacity: 0; } }
+
+/* seal on the board */
+.seal { position: absolute; left: 50%; top: 50%; translate: -50% -50%; z-index: 6; pointer-events: none; font-family: var(--f-show); font-size: clamp(28px, 5vw, 58px); letter-spacing: .04em; color: #fff3d6; padding: 12px 30px 8px; white-space: nowrap; border-radius: 12px;
+  background: radial-gradient(circle at 50% 30%, #c4314b, #7a1024); box-shadow: 0 0 0 3px var(--gold-hi), 0 0 0 7px rgba(122, 16, 36, .85), 0 20px 40px -10px rgba(0, 0, 0, .7); text-shadow: 0 2px 0 rgba(0, 0, 0, .3); animation: sealin .5s cubic-bezier(.2, 1.4, .4, 1), sealfade .8s 2.6s forwards; }
+.seal.ice { background: radial-gradient(circle at 50% 30%, #3a9ccc, #135778); }
+.seal.mint { background: radial-gradient(circle at 50% 30%, #35a36a, #145233); }
+.seal small { display: block; font-family: var(--f-body); font-weight: 800; font-size: .26em; letter-spacing: .12em; text-transform: uppercase; opacity: .9; text-align: center; }
+@keyframes sealin { from { transform: scale(2) rotate(-8deg); opacity: 0; } to { transform: none; opacity: 1; } }
+@keyframes sealfade { to { opacity: .12; } }
+
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chips span { font-size: 13px; font-weight: 800; padding: 4px 10px; border-radius: 14px; background: var(--card-2); }
+.links { display: grid; gap: 6px; }
+.links a, .links button { display: grid; gap: 1px; padding: 8px 16px; border: 1.5px solid var(--line-2); border-radius: 20px; text-decoration: none; color: var(--ink); font-weight: 800; font-size: 15px; background: transparent; cursor: pointer; text-align: left; }
+.links a span, .links button span { color: var(--muted); font-weight: 600; font-size: 13px; }
+.links a:hover, .links button:hover { border-color: var(--crimson); }
+.recap { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 15px; }
+.recap li { display: grid; grid-template-columns: 28px 1fr; gap: 6px; align-items: start; }
+.recap li i { font-style: normal; font-size: 20px; line-height: 1; text-align: center; }
+
+.drawer { position: fixed; top: 0; right: 0; bottom: 0; width: min(380px, 100%); z-index: 95; background: var(--card); color: var(--ink); border-left: 3px solid var(--gold); padding: calc(20px + env(safe-area-inset-top, 0px)) 20px 20px; overflow-y: auto; transform: translateX(105%); transition: transform .25s ease; font-size: 16px; }
+.drawer.open { transform: none; }
+.drawer h3 { font-family: var(--f-head); font-size: 26px; margin-bottom: 10px; color: var(--crimson); }
+.drawer ul { padding-left: 18px; margin: 0; display: grid; gap: 8px; color: var(--muted); }
+.drawer .close { position: absolute; top: calc(14px + env(safe-area-inset-top, 0px)); right: 14px; color: var(--ink); border-color: var(--line-2); }
+
+@media (max-width: 1180px) { .logo span { display: none; } }
+@media (max-width: 980px) {
+  #app { grid-template-rows: auto minmax(0, 1fr); }
+  .bar { grid-template-columns: minmax(0, 1fr) auto; row-gap: 8px; }
+  .tabs { grid-column: 1 / -1; order: 3; }
+  .stage { --bs: min(100%, 560px); grid-template-columns: minmax(0, 1fr); justify-items: center; padding-top: 18px; }
+  .board-col { width: 100%; max-width: 560px; }
+  .card { width: calc(100% - 16px); max-width: 544px; }
+}
+@media (max-width: 520px) {
+  #app { padding-top: 22px; }
+  .logo { min-width: 0; gap: 7px; }
+  .logo b { font-size: 18px; white-space: nowrap; }
+  .logo svg { width: 34px; height: 34px; }
+  .marquee .lead { display: none; }
+  .stars { padding: 4px 9px 4px 6px; }
+  .title { font-size: 28px; }
+  .card { padding: 26px 16px 18px; }
+  .board-frame { padding: 16px; border-radius: 10px; }
+  .board-frame::before, .board-frame::after { inset: 4px; background-size: 16px 9px, 16px 9px, 9px 16px, 9px 16px; }
+  .board-frame::after { background-position: 8px 0, 8px 100%, 0 8px, 100% 8px; }
+  .tabs button { padding: 0 10px; font-size: 15px; height: 34px; min-width: 34px; }
+  .tabs button .lv { display: none; }
+  .pcard .suit { font-size: 26px; }
+  .pcard .lbl { font-size: 16px; }
+  .epochs { grid-template-columns: 1fr; }
+  .finale { grid-template-columns: 70px 1fr; }
+  .hat { width: 70px; height: 84px; }
+}
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } .curtain { display: none; } }
+
+</style>
+<div class="dust" aria-hidden="true"></div><div class="dust b" aria-hidden="true"></div>
+<div class="drape" aria-hidden="true"></div><div class="fringe" aria-hidden="true"></div>
+<div id="app">
+  <header class="bar">
+    <div class="logo">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <ellipse cx="22" cy="40" rx="18" ry="5" style="fill:var(--crimson);stroke:var(--gold-hi)" stroke-width="1"/>
+        <path d="M10 39 L13 14 Q22 10 31 14 L34 39 Z" style="fill:#3a1436;stroke:var(--gold-hi)" stroke-width="1.2"/>
+        <ellipse cx="22" cy="14" rx="9" ry="3" style="fill:#3a1436"/>
+        <path d="M11.6 31 Q22 34 32.4 31 L33 35.5 Q22 38.5 11 35.5 Z" style="fill:var(--crimson)"/>
+        <path d="M33 6 L44 17" style="stroke:var(--gold-hi)" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M31.5 4.5 L34.5 7.5" style="stroke:#fff6d2" stroke-width="2.6" stroke-linecap="round"/>
+        <path d="M40 4 l1 2.4 2.4 1 -2.4 1 -1 2.4 -1 -2.4 -2.4 -1 2.4 -1z" style="fill:var(--gold-hi)"/>
+      </svg>
+      <div><b>Ничья из шляпы</b><span>спасительные фокусы</span></div>
+    </div>
+    <nav class="tabs" id="tabs" aria-label="Номера программы"></nav>
+    <div class="tools">
+      <span class="stars" id="stars" aria-live="polite"></span>
+      <button type="button" class="icon-btn" id="soundBtn" aria-pressed="true" aria-label="Звук" title="Звук"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="M16 8.5a5 5 0 0 1 0 7M18.5 6a8.5 8.5 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+      <button type="button" class="icon-btn" id="notesBtn" aria-label="Заметки ведущему" title="Заметки ведущему"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l4 4v14H6z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M9 11h7M9 15h7M9 7h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></button>
+    </div>
+  </header>
+  <main class="stage">
+    <div class="board-col">
+      <div class="board-frame" id="frame"><div class="board" id="board"></div></div>
+      <div class="marquee" aria-label="Ходы"><span class="lead">программа</span><span class="tm" id="tapeMoves"></span></div>
+    </div>
+    <section class="card" id="card" aria-live="polite"></section>
+  </main>
+</div>
+<aside class="drawer" id="drawer" aria-label="Заметки ведущему">
+  <button type="button" class="icon-btn close" id="drawerClose" aria-label="Закрыть"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></button>
+  <h3>Ведущему</h3>
+  <div id="notes"></div>
+</aside>
+<div class="curtain" id="curtain" aria-hidden="true"><i></i><i></i><div class="bill"><small>шахматный иллюзион</small>Ничья из шляпы</div></div>
+<canvas id="sparkle" aria-hidden="true"></canvas>
+
+<script>
+/* Mini chess core: legal moves, SAN (EN/RU), FEN. Written for this lesson page. */
+(function (root) {
+  'use strict';
+  var FILES = 'abcdefgh';
+  var START = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+  var KN = [[1,2],[2,1],[2,-1],[1,-2],[-1,-2],[-2,-1],[-2,1],[-1,2]];
+  var KG = [[1,0],[1,1],[0,1],[-1,1],[-1,0],[-1,-1],[0,-1],[1,-1]];
+  var BD = [[1,1],[1,-1],[-1,1],[-1,-1]];
+  var RD = [[1,0],[-1,0],[0,1],[0,-1]];
+  function sqName(i) { return FILES[i & 7] + ((i >> 3) + 1); }
+  function sqIndex(s) { return (s.charCodeAt(0) - 97) + (parseInt(s[1], 10) - 1) * 8; }
+  function colorOf(p) { return p ? (p === p.toUpperCase() ? 'w' : 'b') : null; }
+  function on(f, r) { return f >= 0 && f < 8 && r >= 0 && r < 8; }
+
+  function Position(fen) { this.load(fen || START); }
+  Position.prototype.load = function (fen) {
+    var parts = fen.trim().split(/\s+/);
+    var rows = parts[0].split('/');
+    if (rows.length !== 8) throw new Error('Bad FEN: ' + fen);
+    this.board = new Array(64).fill('');
+    for (var r = 0; r < 8; r++) {
+      var f = 0;
+      for (var k = 0; k < rows[r].length; k++) {
+        var ch = rows[r][k];
+        if (ch >= '1' && ch <= '8') f += +ch;
+        else { this.board[(7 - r) * 8 + f] = ch; f++; }
+      }
+      if (f !== 8) throw new Error('Bad FEN row: ' + rows[r]);
+    }
+    this.turn = parts[1] || 'w';
+    this.castling = parts[2] && parts[2] !== '-' ? parts[2] : '';
+    this.ep = parts[3] && parts[3] !== '-' ? sqIndex(parts[3]) : -1;
+    this.half = parseInt(parts[4] || '0', 10);
+    this.full = parseInt(parts[5] || '1', 10);
+    this.hist = [];
+    return this;
+  };
+  Position.prototype.clone = function () { return new Position(this.fen()); };
+  Position.prototype.fen = function () {
+    var s = '';
+    for (var r = 7; r >= 0; r--) {
+      var e = 0;
+      for (var f = 0; f < 8; f++) {
+        var p = this.board[r * 8 + f];
+        if (!p) e++; else { if (e) { s += e; e = 0; } s += p; }
+      }
+      if (e) s += e;
+      if (r) s += '/';
+    }
+    return s + ' ' + this.turn + ' ' + (this.castling || '-') + ' ' + (this.ep >= 0 ? sqName(this.ep) : '-') + ' ' + this.half + ' ' + this.full;
+  };
+  Position.prototype.get = function (sq) { return this.board[typeof sq === 'string' ? sqIndex(sq) : sq]; };
+  Position.prototype.kingSq = function (c) {
+    var k = c === 'w' ? 'K' : 'k';
+    for (var i = 0; i < 64; i++) if (this.board[i] === k) return i;
+    return -1;
+  };
+  Position.prototype.attacked = function (sq, by) {
+    var b = this.board, f = sq & 7, r = sq >> 3, i, d, ff, rr, p;
+    var W = by === 'w';
+    // pawns
+    var pr = W ? r - 1 : r + 1, pp = W ? 'P' : 'p';
+    if (on(f - 1, pr) && b[pr * 8 + f - 1] === pp) return true;
+    if (on(f + 1, pr) && b[pr * 8 + f + 1] === pp) return true;
+    var n = W ? 'N' : 'n', kk = W ? 'K' : 'k';
+    for (i = 0; i < 8; i++) {
+      ff = f + KN[i][0]; rr = r + KN[i][1];
+      if (on(ff, rr) && b[rr * 8 + ff] === n) return true;
+      ff = f + KG[i][0]; rr = r + KG[i][1];
+      if (on(ff, rr) && b[rr * 8 + ff] === kk) return true;
+    }
+    var q = W ? 'Q' : 'q', rk = W ? 'R' : 'r', bs = W ? 'B' : 'b';
+    for (i = 0; i < 4; i++) {
+      d = RD[i]; ff = f + d[0]; rr = r + d[1];
+      while (on(ff, rr)) { p = b[rr * 8 + ff]; if (p) { if (p === q || p === rk) return true; break; } ff += d[0]; rr += d[1]; }
+      d = BD[i]; ff = f + d[0]; rr = r + d[1];
+      while (on(ff, rr)) { p = b[rr * 8 + ff]; if (p) { if (p === q || p === bs) return true; break; } ff += d[0]; rr += d[1]; }
+    }
+    return false;
+  };
+  Position.prototype.inCheck = function (c) {
+    c = c || this.turn;
+    var k = this.kingSq(c);
+    return k >= 0 && this.attacked(k, c === 'w' ? 'b' : 'w');
+  };
+  Position.prototype.pseudo = function () {
+    var mv = [], b = this.board, us = this.turn, them = us === 'w' ? 'b' : 'w';
+    var s, p, t, f, r, i, d, ff, rr, to, q;
+    function pawnAdd(from, to, pc, cap) {
+      if ((to >> 3) === 7 || (to >> 3) === 0) {
+        ['q', 'r', 'b', 'n'].forEach(function (pr) { mv.push({ from: from, to: to, piece: pc, captured: cap || '', promotion: pr, flags: cap ? 'cp' : 'p' }); });
+      } else mv.push({ from: from, to: to, piece: pc, captured: cap || '', flags: cap ? 'c' : 'n' });
+    }
+    for (s = 0; s < 64; s++) {
+      p = b[s]; if (!p || colorOf(p) !== us) continue;
+      t = p.toLowerCase(); f = s & 7; r = s >> 3;
+      if (t === 'p') {
+        var dir = us === 'w' ? 1 : -1, r1 = r + dir;
+        if (r1 < 0 || r1 > 7) continue;
+        to = r1 * 8 + f;
+        if (!b[to]) {
+          pawnAdd(s, to, p, '');
+          if (r === (us === 'w' ? 1 : 6) && !b[(r + 2 * dir) * 8 + f]) mv.push({ from: s, to: (r + 2 * dir) * 8 + f, piece: p, captured: '', flags: 'b' });
+        }
+        for (var df = -1; df <= 1; df += 2) {
+          ff = f + df; if (ff < 0 || ff > 7) continue;
+          to = r1 * 8 + ff; q = b[to];
+          if (q && colorOf(q) === them) pawnAdd(s, to, p, q);
+          else if (!q && to === this.ep) mv.push({ from: s, to: to, piece: p, captured: us === 'w' ? 'p' : 'P', flags: 'e' });
+        }
+      } else if (t === 'n' || t === 'k') {
+        var offs = t === 'n' ? KN : KG;
+        for (i = 0; i < 8; i++) {
+          ff = f + offs[i][0]; rr = r + offs[i][1];
+          if (!on(ff, rr)) continue;
+          to = rr * 8 + ff; q = b[to];
+          if (!q) mv.push({ from: s, to: to, piece: p, captured: '', flags: 'n' });
+          else if (colorOf(q) === them) mv.push({ from: s, to: to, piece: p, captured: q, flags: 'c' });
+        }
+      } else {
+        var dirs = t === 'b' ? BD : t === 'r' ? RD : BD.concat(RD);
+        for (i = 0; i < dirs.length; i++) {
+          d = dirs[i]; ff = f + d[0]; rr = r + d[1];
+          while (on(ff, rr)) {
+            to = rr * 8 + ff; q = b[to];
+            if (!q) mv.push({ from: s, to: to, piece: p, captured: '', flags: 'n' });
+            else { if (colorOf(q) === them) mv.push({ from: s, to: to, piece: p, captured: q, flags: 'c' }); break; }
+            ff += d[0]; rr += d[1];
+          }
+        }
+      }
+    }
+    // castling
+    var c = this.castling;
+    if (us === 'w') {
+      if (c.indexOf('K') >= 0 && b[4] === 'K' && b[7] === 'R' && !b[5] && !b[6] && !this.attacked(4, 'b') && !this.attacked(5, 'b') && !this.attacked(6, 'b'))
+        mv.push({ from: 4, to: 6, piece: 'K', captured: '', flags: 'k' });
+      if (c.indexOf('Q') >= 0 && b[4] === 'K' && b[0] === 'R' && !b[1] && !b[2] && !b[3] && !this.attacked(4, 'b') && !this.attacked(3, 'b') && !this.attacked(2, 'b'))
+        mv.push({ from: 4, to: 2, piece: 'K', captured: '', flags: 'q' });
+    } else {
+      if (c.indexOf('k') >= 0 && b[60] === 'k' && b[63] === 'r' && !b[61] && !b[62] && !this.attacked(60, 'w') && !this.attacked(61, 'w') && !this.attacked(62, 'w'))
+        mv.push({ from: 60, to: 62, piece: 'k', captured: '', flags: 'k' });
+      if (c.indexOf('q') >= 0 && b[60] === 'k' && b[56] === 'r' && !b[57] && !b[58] && !b[59] && !this.attacked(60, 'w') && !this.attacked(59, 'w') && !this.attacked(58, 'w'))
+        mv.push({ from: 60, to: 58, piece: 'k', captured: '', flags: 'q' });
+    }
+    return mv;
+  };
+  Position.prototype.make = function (m) {
+    var b = this.board, us = this.turn;
+    var u = { m: m, castling: this.castling, ep: this.ep, half: this.half, full: this.full, cap: b[m.to], epSq: -1 };
+    b[m.to] = m.promotion ? (us === 'w' ? m.promotion.toUpperCase() : m.promotion) : b[m.from];
+    b[m.from] = '';
+    if (m.flags === 'e') { u.epSq = m.to + (us === 'w' ? -8 : 8); b[u.epSq] = ''; }
+    if (m.flags === 'k') { if (us === 'w') { b[5] = b[7]; b[7] = ''; } else { b[61] = b[63]; b[63] = ''; } }
+    if (m.flags === 'q') { if (us === 'w') { b[3] = b[0]; b[0] = ''; } else { b[59] = b[56]; b[56] = ''; } }
+    var c = this.castling;
+    if (m.piece === 'K') c = c.replace('K', '').replace('Q', '');
+    if (m.piece === 'k') c = c.replace('k', '').replace('q', '');
+    [m.from, m.to].forEach(function (sq) {
+      if (sq === 0) c = c.replace('Q', ''); if (sq === 7) c = c.replace('K', '');
+      if (sq === 56) c = c.replace('q', ''); if (sq === 63) c = c.replace('k', '');
+    });
+    this.castling = c;
+    this.ep = m.flags === 'b' ? (m.from + m.to) >> 1 : -1;
+    this.half = (m.piece === 'P' || m.piece === 'p' || u.cap || m.flags === 'e') ? 0 : this.half + 1;
+    if (us === 'b') this.full++;
+    this.turn = us === 'w' ? 'b' : 'w';
+    this.hist.push(u);
+  };
+  Position.prototype.unmake = function () {
+    var u = this.hist.pop(); if (!u) return null;
+    var m = u.m, b = this.board;
+    this.turn = this.turn === 'w' ? 'b' : 'w';
+    var us = this.turn;
+    b[m.from] = m.piece; b[m.to] = u.cap;
+    if (m.flags === 'e') b[u.epSq] = us === 'w' ? 'p' : 'P';
+    if (m.flags === 'k') { if (us === 'w') { b[7] = b[5]; b[5] = ''; } else { b[63] = b[61]; b[61] = ''; } }
+    if (m.flags === 'q') { if (us === 'w') { b[0] = b[3]; b[3] = ''; } else { b[56] = b[59]; b[59] = ''; } }
+    this.castling = u.castling; this.ep = u.ep; this.half = u.half; this.full = u.full;
+    return m;
+  };
+  Position.prototype.moves = function () {
+    var us = this.turn, them = us === 'w' ? 'b' : 'w', out = [], ps = this.pseudo();
+    for (var i = 0; i < ps.length; i++) {
+      this.make(ps[i]);
+      var k = this.kingSq(us);
+      if (k >= 0 && !this.attacked(k, them)) out.push(ps[i]);
+      this.unmake();
+    }
+    return out;
+  };
+  Position.prototype.status = function () {
+    var n = this.moves().length, chk = this.inCheck();
+    if (n === 0) return chk ? 'mate' : 'stalemate';
+    return chk ? 'check' : 'normal';
+  };
+  Position.prototype.san = function (m, legal) {
+    legal = legal || this.moves();
+    var s;
+    if (m.flags === 'k') s = 'O-O';
+    else if (m.flags === 'q') s = 'O-O-O';
+    else {
+      var T = m.piece.toUpperCase();
+      if (T === 'P') {
+        s = (m.captured ? FILES[m.from & 7] + 'x' : '') + sqName(m.to);
+        if (m.promotion) s += '=' + m.promotion.toUpperCase();
+      } else {
+        var others = legal.filter(function (o) { return o.piece === m.piece && o.to === m.to && o.from !== m.from; });
+        var dis = '';
+        if (others.length) {
+          var sameFile = others.some(function (o) { return (o.from & 7) === (m.from & 7); });
+          var sameRank = others.some(function (o) { return (o.from >> 3) === (m.from >> 3); });
+          if (!sameFile) dis = FILES[m.from & 7];
+          else if (!sameRank) dis = String((m.from >> 3) + 1);
+          else dis = sqName(m.from);
+        }
+        s = T + dis + (m.captured ? 'x' : '') + sqName(m.to);
+      }
+    }
+    this.make(m);
+    var st = this.status();
+    this.unmake();
+    if (st === 'mate') s += '#'; else if (st === 'check') s += '+';
+    return s;
+  };
+  function normSan(s) {
+    return String(s).replace(/[+#!?\s]/g, '').replace(/0/g, 'O').replace(/^([a-h][18])([QRBN])$/, '$1=$2').replace(/^([a-h]x[a-h][18])([QRBN])$/, '$1=$2');
+  }
+  Position.prototype.findMove = function (x) {
+    var legal = this.moves(), i;
+    if (typeof x === 'object') {
+      for (i = 0; i < legal.length; i++) {
+        var m = legal[i];
+        if (m.from === x.from && m.to === x.to && (m.promotion || '') === (x.promotion || '')) return m;
+      }
+      return null;
+    }
+    var str = String(x).trim();
+    if (/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(str)) {
+      return this.findMove({ from: sqIndex(str.slice(0, 2)), to: sqIndex(str.slice(2, 4)), promotion: str[4] || '' });
+    }
+    var want = normSan(str);
+    for (i = 0; i < legal.length; i++) if (normSan(this.san(legal[i], legal)) === want) return legal[i];
+    return null;
+  };
+  Position.prototype.play = function (x) {
+    var m = this.findMove(x);
+    if (!m) return null;
+    var s = this.san(m);
+    this.make(m);
+    return { from: m.from, to: m.to, piece: m.piece, captured: m.captured, promotion: m.promotion || '', flags: m.flags, san: s, uci: sqName(m.from) + sqName(m.to) + (m.promotion || '') };
+  };
+  Position.prototype.perft = function (d) {
+    if (d === 0) return 1;
+    var ms = this.moves(), n = 0;
+    if (d === 1) return ms.length;
+    for (var i = 0; i < ms.length; i++) { this.make(ms[i]); n += this.perft(d - 1); this.unmake(); }
+    return n;
+  };
+  var RU = { K: 'Кр', Q: 'Ф', R: 'Л', B: 'С', N: 'К' };
+  function sanToRu(s) {
+    if (!s) return s;
+    if (s.indexOf('O-O') === 0) return s.replace(/O/g, '0');
+    return s.replace(/^([KQRBN])/, function (a) { return RU[a]; })
+            .replace('x', ':')
+            .replace(/=([QRBN])/, function (a, p) { return RU[p]; });
+  }
+  var api = { Position: Position, sqName: sqName, sqIndex: sqIndex, colorOf: colorOf, sanToRu: sanToRu, START: START };
+  if (typeof module !== 'undefined' && module.exports) module.exports = api;
+  else root.ChessCore = api;
+})(this);
+
+</script>
+<script>
+window.PIECE_PATHS = {"wK":{"f":"M33.1 14.3Q33.8 14.3 34.9 14.6Q36 14.9 37.3 15.6Q38.6 16.3 39.5 17.8Q40.5 19.4 40.5 21.4Q40.5 23 39.9 24.2Q39.3 25.5 38.5 26.5Q37.7 27.5 36.8 28.7Q36 30 35.3 32.3Q34.6 34.6 34.5 37.8Q34.4 41.8 22.5 41.8Q10.7 41.8 10.5 37.8Q10.3 33.7 9.3 31Q8.3 28.4 7.3 27.4Q6.3 26.5 5.4 25Q4.5 23.5 4.5 21.4Q4.5 19.3 5.5 17.8Q6.4 16.2 7.7 15.5Q9 14.8 10.1 14.5Q11.2 14.3 12 14.3Q14.9 14.3 17.8 16.6Q17.8 13.8 18.4 12.6Q18.9 11.5 21.1 10V8.6L18.6 7.2V5.1H20.8L21.6 2.8H23.4L24.2 5.1H26.4V7.2L23.9 8.6V10Q26.1 11.4 26.6 12.7Q27.2 14 27.2 16.6Q28 15.8 29.6 15Q31.3 14.3 33.1 14.3ZM22.5 21.8Q22.9 21.2 23.5 20.2Q24.2 19.2 24.4 18.8Q24.6 18.4 24.8 17.6Q25 16.8 25 15.7Q25 12.2 22.6 12.2Q20 12.2 20 15.7Q20 16.8 20.2 17.6Q20.4 18.4 20.6 18.8Q20.8 19.2 21.5 20.2Q22.1 21.2 22.5 21.8ZM33.1 16.4Q30.1 16.4 27.1 19.4Q24 22.4 23.6 27.2Q23.6 28.6 34.4 28.6Q34.5 28.5 35.8 26.9Q37 25.4 37.7 24.1Q38.3 22.8 38.3 21.7Q38.3 19.4 36.8 17.9Q35.3 16.4 33.1 16.4ZM33.3 31Q31.6 30.9 29.6 30.7Q27.7 30.6 26.9 30.5Q26.1 30.4 25.1 30.3Q24.2 30.2 23.6 30.1Q23.1 30 22.5 29.7Q21.8 30 20.8 30.2Q19.8 30.4 19 30.5Q18.2 30.6 15.8 30.7Q13.4 30.9 11.7 31Q12.2 33.2 12.4 36Q16.5 34.6 22.5 34.6Q28.6 34.6 32.6 36Q32.8 33 33.3 31ZM11.9 16.4Q9.8 16.4 8.2 17.9Q6.7 19.4 6.7 21.7Q6.7 22.6 7.1 23.6Q7.6 24.6 8.1 25.3Q8.6 26 9.5 27.1Q10.3 28.2 10.6 28.6Q21.4 28.6 21.4 27.2Q21 22.4 18 19.4Q14.9 16.4 11.9 16.4ZM22.6 37Q14.3 37 14.3 38.6Q14.3 39.1 17.1 39.4Q20 39.7 22.5 39.7Q30.7 39.7 30.7 38.6Q30.7 37 22.6 37Z","s":"M33.1 14.3Q33.8 14.3 34.9 14.6Q36 14.9 37.3 15.6Q38.6 16.3 39.5 17.8Q40.5 19.4 40.5 21.4Q40.5 23 39.9 24.2Q39.3 25.5 38.5 26.5Q37.7 27.5 36.8 28.7Q36 30 35.3 32.3Q34.6 34.6 34.5 37.8Q34.4 41.8 22.5 41.8Q10.7 41.8 10.5 37.8Q10.3 33.7 9.3 31Q8.3 28.4 7.3 27.4Q6.3 26.5 5.4 25Q4.5 23.5 4.5 21.4Q4.5 19.3 5.5 17.8Q6.4 16.2 7.7 15.5Q9 14.8 10.1 14.5Q11.2 14.3 12 14.3Q14.9 14.3 17.8 16.6Q17.8 13.8 18.4 12.6Q18.9 11.5 21.1 10V8.6L18.6 7.2V5.1H20.8L21.6 2.8H23.4L24.2 5.1H26.4V7.2L23.9 8.6V10Q26.1 11.4 26.6 12.7Q27.2 14 27.2 16.6Q28 15.8 29.6 15Q31.3 14.3 33.1 14.3Z"},"wQ":{"f":"M22.5 28.5Q25.7 28.5 28.5 28.7Q31.4 28.9 31.8 28.9Q32.5 28.9 32.7 28.8Q32.9 28.7 32.9 28.4Q32.9 27.2 29.3 26.6Q25.6 25.9 22.5 25.9Q19.4 25.9 15.8 26.6Q12.2 27.2 12.2 28.4Q12.2 28.7 12.3 28.8Q12.5 28.9 13.2 28.9Q13.3 28.9 16.8 28.7Q20.3 28.5 22.5 28.5ZM32.1 31.1Q27.5 30.6 22.5 30.6Q17.4 30.6 12.9 31.1Q13.6 31.7 13.6 33.5Q13.6 34.6 13.3 34.8Q16.9 34.2 22.5 34.2Q28.2 34.2 31.8 34.8Q31.4 34.6 31.4 33.5Q31.4 31.7 32.1 31.1ZM32.2 37.9Q32.2 36.2 22.5 36.2Q12.9 36.2 12.9 37.9Q12.9 39.4 22.5 39.4Q32.2 39.4 32.2 37.9ZM22.5 5.2Q21 5.2 21 6.7Q21 8.2 22.5 8.2Q24 8.2 24 6.7Q24 5.2 22.5 5.2ZM20.5 12.5Q20.5 10.5 19.8 8.8Q19.2 7.1 19.2 6.8Q19.2 5.5 20.2 4.5Q21.2 3.5 22.5 3.5Q23.9 3.5 24.8 4.5Q25.8 5.5 25.8 6.8Q25.8 7.1 25.1 8.8Q24.5 10.5 24.5 12.5Q24.5 15.4 25.8 21.1Q29 14.4 29 10.9Q29 10.6 28.8 9.6Q28.6 8.6 28.6 8.4Q28.6 7 29.6 6Q30.5 5.1 31.9 5.1Q33.3 5.1 34.3 6Q35.3 7 35.3 8.4Q35.3 9.5 34.9 10.1Q34.4 10.7 33.9 11Q33.4 11.3 33 12.6Q32.5 13.8 32.5 16Q32.5 17.6 32.8 21Q36.7 17 36.7 14.5Q36.7 14.5 36.6 14Q36.6 13.5 36.5 12.9Q36.4 12.4 36.4 12.2Q36.4 10.9 37.4 9.9Q38.4 8.9 39.7 8.9Q41 8.9 42 9.9Q43 10.9 43 12.2Q43 14.7 40.3 15.9Q40.2 18.3 38.2 26.6Q38.2 27.1 36 29.8Q33.7 32.6 33.7 33.4Q33.7 33.9 34.6 35.7Q35.4 37.4 35.4 38.5V39.4Q35.4 40.8 31.1 41.3Q26.8 41.8 22.5 41.8Q17.7 41.8 13.6 41.3Q9.6 40.7 9.6 39.4V38.5Q9.6 37.3 10.4 35.5Q11.2 33.8 11.2 33.4Q11.2 32.2 9.3 30Q7.4 27.9 6.8 26.6Q4.8 18.4 4.7 15.9Q2 14.7 2 12.2Q2 10.9 3 9.9Q4 8.9 5.3 8.9Q6.6 8.9 7.6 9.9Q8.6 10.9 8.6 12.2Q8.6 12.3 8.4 13.4Q8.3 14.4 8.3 14.5Q8.3 17.2 12.1 21Q12.4 18.4 12.4 16Q12.4 13.9 12 12.6Q11.6 11.3 11 11Q10.5 10.7 10.1 10Q9.7 9.4 9.7 8.4Q9.7 7 10.7 6Q11.7 5.1 13 5.1Q14.4 5.1 15.4 6Q16.4 7 16.4 8.4Q16.4 8.4 16.2 9.5Q16 10.6 16 10.9Q16 14.3 19.2 21.1Q20.5 15.7 20.5 12.5ZM39.7 10.8Q39.1 10.8 38.7 11.2Q38.2 11.6 38.2 12.2Q38.2 12.9 38.7 13.3Q39.1 13.8 39.7 13.8Q41.1 13.8 41.1 12.2Q41.1 10.8 39.7 10.8ZM31.9 7Q31.3 7 30.9 7.5Q30.5 7.9 30.5 8.5Q30.5 9.1 30.9 9.5Q31.3 10 31.9 10Q33.4 10 33.4 8.5Q33.4 7 31.9 7ZM13 7Q11.6 7 11.6 8.5Q11.6 10 13 10Q14.5 10 14.5 8.5Q14.5 7 13 7ZM5.3 10.8Q3.8 10.8 3.8 12.2Q3.8 13.8 5.3 13.8Q6.7 13.8 6.7 12.2Q6.7 11.6 6.3 11.2Q5.8 10.8 5.3 10.8ZM22.5 14.6Q22 17.9 21.3 19.7Q20.7 21.6 20.2 22.4Q19.6 23.1 19.5 23.6Q19.2 23.3 18.5 22.4Q17.8 21.6 17.6 21.3Q17.4 21 16.9 20.3Q16.4 19.5 16.1 18.8Q15.8 18.1 15.4 16.9Q14.9 15.7 14.3 14.2Q14.5 15 14.5 15.9Q14.5 18.7 13.5 24.5Q10.3 22.6 7.2 18.5Q8.7 25.5 9.4 26.3Q9.5 26.5 9.7 26.5Q14.5 23.7 22.5 23.7Q30.6 23.7 35.4 26.5Q36.5 26.2 37.8 18.5Q34.7 22.7 31.6 24.5Q30.6 19.4 30.6 16.4Q30.6 15.6 30.7 14.2Q29.8 16.9 28.9 18.8Q28 20.7 27.4 21.3Q26.9 22 26.3 22.6Q25.8 23.1 25.6 23.6Q25.3 23.1 24.8 22.4Q24.4 21.7 24.3 21.4Q24.2 21.1 23.9 20.3Q23.6 19.4 23.3 18.1Q23 16.9 22.5 14.6Z","s":"M20.5 12.5Q20.5 10.5 19.8 8.8Q19.2 7.1 19.2 6.8Q19.2 5.5 20.2 4.5Q21.2 3.5 22.5 3.5Q23.9 3.5 24.8 4.5Q25.8 5.5 25.8 6.8Q25.8 7.1 25.1 8.8Q24.5 10.5 24.5 12.5Q24.5 15.4 25.8 21.1Q29 14.4 29 10.9Q29 10.6 28.8 9.6Q28.6 8.6 28.6 8.4Q28.6 7 29.6 6Q30.5 5.1 31.9 5.1Q33.3 5.1 34.3 6Q35.3 7 35.3 8.4Q35.3 9.5 34.9 10.1Q34.4 10.7 33.9 11Q33.4 11.3 33 12.6Q32.5 13.8 32.5 16Q32.5 17.6 32.8 21Q36.7 17 36.7 14.5Q36.7 14.5 36.6 14Q36.6 13.5 36.5 12.9Q36.4 12.4 36.4 12.2Q36.4 10.9 37.4 9.9Q38.4 8.9 39.7 8.9Q41 8.9 42 9.9Q43 10.9 43 12.2Q43 14.7 40.3 15.9Q40.2 18.3 38.2 26.6Q38.2 27.1 36 29.8Q33.7 32.6 33.7 33.4Q33.7 33.9 34.6 35.7Q35.4 37.4 35.4 38.5V39.4Q35.4 40.8 31.1 41.3Q26.8 41.8 22.5 41.8Q17.7 41.8 13.6 41.3Q9.6 40.7 9.6 39.4V38.5Q9.6 37.3 10.4 35.5Q11.2 33.8 11.2 33.4Q11.2 32.2 9.3 30Q7.4 27.9 6.8 26.6Q4.8 18.4 4.7 15.9Q2 14.7 2 12.2Q2 10.9 3 9.9Q4 8.9 5.3 8.9Q6.6 8.9 7.6 9.9Q8.6 10.9 8.6 12.2Q8.6 12.3 8.4 13.4Q8.3 14.4 8.3 14.5Q8.3 17.2 12.1 21Q12.4 18.4 12.4 16Q12.4 13.9 12 12.6Q11.6 11.3 11 11Q10.5 10.7 10.1 10Q9.7 9.4 9.7 8.4Q9.7 7 10.7 6Q11.7 5.1 13 5.1Q14.4 5.1 15.4 6Q16.4 7 16.4 8.4Q16.4 8.4 16.2 9.5Q16 10.6 16 10.9Q16 14.3 19.2 21.1Q20.5 15.7 20.5 12.5Z"},"wR":{"f":"M15.7 18.8V29.3H29.3V18.8ZM8.7 41.8 7.6 40.7V36.6L13.7 30.5V18.6L8.4 14.1V8.7L10.2 7H15.5L16.5 8V9.6H18.2V8L19.2 7H25.8L26.8 8V9.6H28.4V8L29.5 7H34.8L36.6 8.7V14.1L31.3 18.6V30.5L37.4 36.6V40.7L36.3 41.8ZM9.7 37.1V39.4H35.3V37.1ZM15.5 31.3 11.6 35.1H33.4L29.5 31.3ZM20.2 9.5V11.1L19.4 11.9H15.5L14.6 11.1V9.4H11.3L10.5 10.2V13.5L14.6 16.8H30.4L34.5 13.5V10.2L33.7 9.4H30.4V11.1L29.5 11.9H25.6L24.8 11.1V9.5Z","s":"M8.7 41.8 7.6 40.7V36.6L13.7 30.5V18.6L8.4 14.1V8.7L10.2 7H15.5L16.5 8V9.6H18.2V8L19.2 7H25.8L26.8 8V9.6H28.4V8L29.5 7H34.8L36.6 8.7V14.1L31.3 18.6V30.5L37.4 36.6V40.7L36.3 41.8Z"},"wB":{"f":"M22.5 25.8Q18.4 25.8 16 25.4Q16.5 26.2 16.5 26.8Q16.5 27.7 16.1 28.3Q17.8 27.8 22.5 27.8Q27.2 27.8 28.9 28.3Q28.5 27.7 28.5 26.8Q28.5 26.1 28.9 25.4Q26.2 25.8 22.5 25.8ZM20.7 6Q20.7 6.8 21.2 7.3Q21.7 7.8 22.5 7.8Q23.3 7.8 23.8 7.3Q24.3 6.8 24.3 6Q24.3 5.3 23.8 4.8Q23.2 4.3 22.5 4.3Q21.8 4.3 21.2 4.8Q20.7 5.4 20.7 6ZM22.5 29.5Q19.6 29.5 18 29.7Q16.5 29.9 16 30.2Q15.5 30.5 15.5 31Q15.5 31.6 16.6 31.7Q17.6 31.9 20 31.9Q20.4 31.9 21.2 31.9Q22 31.9 22.5 31.9Q29.4 31.9 29.4 31Q29.4 30.1 28.1 29.8Q26.7 29.5 22.5 29.5ZM22.4 10.1Q19.8 10.4 16.5 13.2Q13.2 16 13 18.7Q13.3 21.1 13.8 22Q14.2 22.9 16.2 23.5Q18.1 24 22.4 24Q25.1 24 26.8 23.8Q28.5 23.6 29.5 23.3Q30.5 23 31 22.2Q31.5 21.4 31.7 20.8Q31.9 20.2 32 18.7Q31.8 16 28.5 13.2Q25.1 10.4 22.4 10.1ZM21.4 21.1V18.5H19.4V16.2H21.4V13.7H23.6V16.2H25.6V18.5H23.6V21.1ZM22.5 35.4Q23.6 37.4 26.9 38.3Q30.2 39.3 33.9 39.4Q34.1 39.4 35.5 39.6Q37 39.9 37.1 39.9Q38.3 39.9 38.3 38.7Q38.3 37.8 37.1 37.4Q35.9 37 32.1 36.8Q29.5 36.6 27.6 36Q25.7 35.4 25 34.8Q24.2 34.2 23.6 33.7Q22.9 33.2 22.4 33.2Q21.8 33.2 21.2 33.7Q20.6 34.2 19.9 34.9Q19.2 35.5 17.5 36.1Q15.7 36.7 13.3 36.8Q10.6 36.8 9.1 37Q7.6 37.3 7.1 37.7Q6.7 38.1 6.7 38.7Q6.8 39.9 7.9 39.9Q8 39.9 9.4 39.6Q10.9 39.4 11.1 39.4Q14.9 39.4 18.2 38.4Q21.4 37.4 22.5 35.4ZM30.6 26.5Q30.6 27.2 31.2 29Q31.8 30.7 31.8 31.1Q31.8 33.2 27.6 33.7Q30.8 34.8 33.3 34.8Q33.5 34.8 35.1 34.7Q36.6 34.6 36.8 34.6Q39.7 34.6 41.6 38.4Q41.5 38.6 40.8 39.7Q40.2 40.8 39.8 41.2Q39.5 41.6 38.9 42.3Q38.2 42.9 37.6 43.2Q37.3 42.1 34.5 41.8Q31.7 41.5 28 40.8Q24.3 40.2 22.5 38.4Q21 39.9 18.4 40.6Q15.7 41.4 13.5 41.5Q11.2 41.6 9.4 42Q7.6 42.4 7.4 43.2Q6.8 43 6.1 42.2Q5.4 41.4 4.4 40Q3.5 38.6 3.4 38.4Q5.3 34.6 8.2 34.6Q8.3 34.6 9.9 34.7Q11.5 34.8 11.7 34.8Q14.1 34.8 17.4 33.7Q13.2 33.2 13.2 31.1Q13.2 30.8 13.8 28.9Q14.4 27.1 14.4 26.6Q14.4 26.4 13.5 25.5Q12.6 24.5 11.7 22.8Q10.8 21.2 10.8 19.2Q10.8 15.4 14.2 12.3Q17.6 9.2 19.7 9Q18.4 7.4 18.4 5.7Q18.4 4 19.5 3Q20.7 2.1 22.5 2.1Q24.3 2.1 25.4 3.1Q26.6 4.1 26.6 5.7Q26.6 7.6 25.3 9Q27.2 9.3 30.7 12.4Q34.2 15.4 34.2 19.2Q34.2 22.5 30.6 26.5Z","s":"M30.6 26.5Q30.6 27.2 31.2 29Q31.8 30.7 31.8 31.1Q31.8 33.2 27.6 33.7Q30.8 34.8 33.3 34.8Q33.5 34.8 35.1 34.7Q36.6 34.6 36.8 34.6Q39.7 34.6 41.6 38.4Q41.5 38.6 40.8 39.7Q40.2 40.8 39.8 41.2Q39.5 41.6 38.9 42.3Q38.2 42.9 37.6 43.2Q37.3 42.1 34.5 41.8Q31.7 41.5 28 40.8Q24.3 40.2 22.5 38.4Q21 39.9 18.4 40.6Q15.7 41.4 13.5 41.5Q11.2 41.6 9.4 42Q7.6 42.4 7.4 43.2Q6.8 43 6.1 42.2Q5.4 41.4 4.4 40Q3.5 38.6 3.4 38.4Q5.3 34.6 8.2 34.6Q8.3 34.6 9.9 34.7Q11.5 34.8 11.7 34.8Q14.1 34.8 17.4 33.7Q13.2 33.2 13.2 31.1Q13.2 30.8 13.8 28.9Q14.4 27.1 14.4 26.6Q14.4 26.4 13.5 25.5Q12.6 24.5 11.7 22.8Q10.8 21.2 10.8 19.2Q10.8 15.4 14.2 12.3Q17.6 9.2 19.7 9Q18.4 7.4 18.4 5.7Q18.4 4 19.5 3Q20.7 2.1 22.5 2.1Q24.3 2.1 25.4 3.1Q26.6 4.1 26.6 5.7Q26.6 7.6 25.3 9Q27.2 9.3 30.7 12.4Q34.2 15.4 34.2 19.2Q34.2 22.5 30.6 26.5Z"},"wN":{"f":"M9.1 27.8Q9.9 27.8 9.9 29Q9.9 30.4 8.4 30.4Q7.8 30.4 7.8 29.5Q7.8 27.8 9.1 27.8ZM13.3 20.6Q12.5 20.6 12.5 19.6Q12.5 18.5 13.6 17.5Q14.8 16.6 15.9 16.6Q17.3 16.6 17.3 17.4Q17.3 18.5 15.9 19.5Q14.5 20.6 13.3 20.6ZM13.8 9.5Q14.1 10.3 14.1 10.6Q14.1 10.8 13.9 11.5Q14.2 11.5 15.1 11.2Q16.1 10.9 16.5 10.6Q14.9 9.7 13.8 9.5ZM24.2 25.7Q24.2 28.3 22.8 31Q21.3 33.7 19.8 36Q18.2 38.3 18 39.6H37.6Q37.8 36.9 37.8 35.6Q37.8 30.4 36.4 26.1Q34.9 21.7 32.9 19.2Q30.9 16.7 29.2 15.3Q27.5 14 26.4 14H22.9Q22.4 13.7 22 11.8Q21.6 9.9 21 9.5Q20.6 11 19.4 11.6Q18.3 12.3 16.6 12.8Q14.9 13.2 13.9 14Q13.2 16.4 10.1 22.3Q7 28.2 6.8 29.8Q7 30.7 7.9 31.4Q8.8 32.2 9.8 32.2Q10.2 32.2 10.9 31.7Q11.5 31.2 12 31.2Q12.3 31.2 12.3 31.6Q12.3 31.6 12.2 32.1Q12 32.6 12 32.7Q12 33.2 12.8 33.2Q12.9 33.2 14.3 31.1Q16.9 27.1 21.7 25Q22.1 22.7 23.2 20.7Q24.4 18.8 25 18.8Q25.6 18.8 25.6 19.5Q25.6 19.9 24.8 22Q24.1 24.2 24.1 24.9Q24.1 25.1 24.2 25.7ZM25.4 11.5Q26.7 11.5 28.3 12.1Q30 12.8 32.1 14.6Q34.3 16.4 36 19.1Q37.8 21.8 39 26.4Q40.2 31.1 40.2 36.8Q40.2 39.6 40 41.8H15.1Q15.3 39.1 16.3 37Q17.3 34.8 18.4 33.7Q19.5 32.6 20.5 30.9Q21.6 29.2 21.8 27.2Q19.5 28.2 17.9 29.7Q16.2 31.1 15.6 32.3Q14.9 33.5 14.3 34.4Q13.7 35.2 13.1 35.2Q12.1 35.2 11.3 34.8Q10.6 34.3 10.5 33.6Q9.9 33.9 9.3 33.9Q6.5 33.9 4.8 30.3Q5.2 28.1 8.7 20.6Q12.3 13.1 12.3 10.9Q12.3 10.6 11.9 7.6Q15.6 7.6 18.5 9.6Q20.1 6.8 21.2 6.8Q22.6 7.6 23.2 8.5Q23.8 9.5 24.4 11.6Q25 11.5 25.4 11.5Z","s":"M25.4 11.5Q26.7 11.5 28.3 12.1Q30 12.8 32.1 14.6Q34.3 16.4 36 19.1Q37.8 21.8 39 26.4Q40.2 31.1 40.2 36.8Q40.2 39.6 40 41.8H15.1Q15.3 39.1 16.3 37Q17.3 34.8 18.4 33.7Q19.5 32.6 20.5 30.9Q21.6 29.2 21.8 27.2Q19.5 28.2 17.9 29.7Q16.2 31.1 15.6 32.3Q14.9 33.5 14.3 34.4Q13.7 35.2 13.1 35.2Q12.1 35.2 11.3 34.8Q10.6 34.3 10.5 33.6Q9.9 33.9 9.3 33.9Q6.5 33.9 4.8 30.3Q5.2 28.1 8.7 20.6Q12.3 13.1 12.3 10.9Q12.3 10.6 11.9 7.6Q15.6 7.6 18.5 9.6Q20.1 6.8 21.2 6.8Q22.6 7.6 23.2 8.5Q23.8 9.5 24.4 11.6Q25 11.5 25.4 11.5Z"},"wP":{"f":"M20.3 25.6Q20.3 26.3 19.5 27Q18.6 27.7 17.4 28.5Q16.1 29.3 14.9 30.4Q13.6 31.6 12.8 33.9Q11.9 36.2 11.9 39.4H33.1Q33.1 36.8 32.5 34.7Q31.8 32.6 30.9 31.4Q29.9 30.3 28.8 29.3Q27.7 28.4 26.8 27.9Q25.8 27.5 25.2 26.9Q24.6 26.3 24.6 25.6Q24.6 25 25.1 24.7Q25.7 24.3 26.4 24Q27 23.7 27.6 22.9Q28.1 22 28.1 20.7Q28.1 19.3 27.5 18.3Q26.8 17.3 26 16.8Q25.3 16.4 24.6 15.9Q24 15.4 24 15Q24 14.1 24.5 13.1Q25.1 12.1 25.1 11.5Q25.1 10.5 24.3 9.7Q23.5 9 22.4 9Q21.4 9 20.6 9.7Q19.8 10.5 19.8 11.4Q19.8 12 20.4 13Q21 14.1 21 15Q21 15.4 20.3 15.9Q19.7 16.4 18.9 16.9Q18.2 17.3 17.5 18.3Q16.9 19.4 16.9 20.7Q16.9 22 17.8 23Q18.6 24 19.5 24.6Q20.3 25.2 20.3 25.6ZM9.8 41.8Q9.8 41.1 9.8 39.1Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.6Q14.3 16.6 18.4 14.9Q17.4 13.2 17.4 11.5Q17.4 9.5 18.9 8.2Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.1 26.6 14.9Q30.7 16.6 30.7 20.6Q30.7 22.5 29.7 23.9Q28.7 25.4 27.3 25.9Q31.4 28 33.3 31Q35.2 33.9 35.2 39.1Q35.2 41.1 35.2 41.8Z","s":"M9.8 41.8Q9.8 41.1 9.8 39.1Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.6Q14.3 16.6 18.4 14.9Q17.4 13.2 17.4 11.5Q17.4 9.5 18.9 8.2Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.1 26.6 14.9Q30.7 16.6 30.7 20.6Q30.7 22.5 29.7 23.9Q28.7 25.4 27.3 25.9Q31.4 28 33.3 31Q35.2 33.9 35.2 39.1Q35.2 41.1 35.2 41.8Z"},"bK":{"f":"M32.9 16.4Q32.1 16.4 30.7 17Q29.4 17.5 27.8 18.7Q26.3 19.8 25.1 22Q24 24.2 24 27Q24 28.1 22.5 28.1Q20.9 28.1 20.9 27Q20.9 24.1 19.8 21.8Q18.7 19.6 17.1 18.5Q15.5 17.4 14.2 16.9Q12.9 16.4 12 16.4Q9.5 16.4 8.1 17.7Q6.7 19 6.7 21.3Q6.7 22.1 7.6 24.2Q8.5 26.2 10.5 28.2Q12.5 30.3 14.9 30.3Q17.3 30.3 22.4 29.4Q27.6 30.3 29.9 30.3Q31.8 30.3 33.5 29.1Q35.2 27.9 36.1 26.3Q37.1 24.6 37.6 23.2Q38.2 21.8 38.2 21.3Q38.2 19 36.8 17.7Q35.3 16.4 32.9 16.4ZM25.4 27.2Q25.5 25.1 26.1 23.4Q26.7 21.7 27.6 20.7Q28.5 19.6 29.5 19Q30.6 18.3 31.4 18.1Q32.2 17.9 32.8 17.9Q34.6 17.9 35.7 18.8Q36.9 19.7 36.9 21.3Q36.9 21.8 36.4 22.9Q36 24 35.1 25.4Q34.3 26.7 32.7 27.7Q31.1 28.7 29.1 28.7Q25.4 28.7 25.4 27.2ZM31.2 36.4Q31.2 34.8 22.5 34.8Q18.6 34.8 16.2 35.2Q13.7 35.7 13.7 36.3Q13.7 37.2 15.3 37.2Q15.5 37.2 18.8 36.9Q22.1 36.6 22.5 36.6Q22.6 36.6 25.9 36.9Q29.2 37.2 29.6 37.2Q31.2 37.2 31.2 36.4ZM17.7 16.6Q17.7 14 18.3 12.8Q18.8 11.6 21 10.1V8.7L18.6 7.3V5.1H20.8L21.5 2.9H23.5L24.3 5.1H26.4V7.3L24.1 8.7V10.1Q26.1 11.5 26.7 12.7Q27.3 13.9 27.3 16.6Q30.1 14.3 33.1 14.3Q36.2 14.3 38.3 16.3Q40.5 18.3 40.5 21.4Q40.5 23.8 38.2 27Q36.8 29 36.3 29.8Q35.8 30.7 35.2 32.8Q34.6 34.9 34.6 37.8Q34.4 41.8 22.5 41.8Q10.6 41.8 10.4 37.8Q10.4 34.8 9.7 32.4Q9 30.1 8.5 29.3Q7.9 28.4 6.8 26.9Q4.5 23.8 4.5 21.4Q4.5 18.4 6.7 16.4Q8.8 14.3 11.9 14.3Q14.9 14.3 17.7 16.6ZM12 17.9Q12.8 17.9 13.9 18.3Q15 18.8 16.3 19.7Q17.7 20.7 18.6 22.7Q19.4 24.7 19.4 27.3Q19.4 28.7 15.8 28.7Q13.8 28.7 12.2 27.7Q10.6 26.7 9.7 25.3Q8.9 23.9 8.5 22.8Q8.1 21.8 8.1 21.3Q8.1 19.7 9.2 18.8Q10.4 17.9 12 17.9Z","s":"M17.7 16.6Q17.7 14 18.3 12.8Q18.8 11.6 21 10.1V8.7L18.6 7.3V5.1H20.8L21.5 2.9H23.5L24.3 5.1H26.4V7.3L24.1 8.7V10.1Q26.1 11.5 26.7 12.7Q27.3 13.9 27.3 16.6Q30.1 14.3 33.1 14.3Q36.2 14.3 38.3 16.3Q40.5 18.3 40.5 21.4Q40.5 23.8 38.2 27Q36.8 29 36.3 29.8Q35.8 30.7 35.2 32.8Q34.6 34.9 34.6 37.8Q34.4 41.8 22.5 41.8Q10.6 41.8 10.4 37.8Q10.4 34.8 9.7 32.4Q9 30.1 8.5 29.3Q7.9 28.4 6.8 26.9Q4.5 23.8 4.5 21.4Q4.5 18.4 6.7 16.4Q8.8 14.3 11.9 14.3Q14.9 14.3 17.7 16.6Z"},"bQ":{"f":"M22.6 33.8Q18.8 33.8 15.8 34.3Q12.7 34.8 12.7 35.7Q12.7 36.6 14.1 36.6Q14.3 36.6 17.7 36.4Q21.1 36.1 22.6 36.1Q24.2 36.1 27.5 36.4Q30.8 36.6 31 36.6Q32.3 36.6 32.3 35.7Q32.3 33.8 22.6 33.8ZM5.3 10.9Q4.7 10.9 4.3 11.3Q3.8 11.7 3.8 12.4Q3.8 13 4.3 13.4Q4.7 13.8 5.3 13.8Q6.7 13.8 6.7 12.4Q6.7 10.9 5.3 10.9ZM13.1 7.1Q11.5 7.1 11.5 8.6Q11.5 10.1 13.1 10.1Q14.5 10.1 14.5 8.6Q14.5 7.1 13.1 7.1ZM32 7.1Q31.4 7.1 31 7.6Q30.6 8 30.6 8.6Q30.6 10.1 32 10.1Q33.5 10.1 33.5 8.6Q33.5 7.1 32 7.1ZM39.7 10.9Q38.3 10.9 38.3 12.4Q38.3 13.8 39.7 13.8Q41.2 13.8 41.2 12.4Q41.2 11.7 40.7 11.3Q40.3 10.9 39.7 10.9ZM33.8 33.5Q33.8 33.8 34.6 35.7Q35.4 37.7 35.4 39.2Q35.4 40.6 31.4 41.3Q27.3 41.9 22.5 41.9Q17 41.9 13.3 41.1Q9.6 40.4 9.6 39.2Q9.6 37.6 10.4 35.7Q11.2 33.8 11.2 33.5Q11.2 32.5 9 29.9Q6.8 27.3 6.8 26.7Q6.8 26.3 6.3 24.9Q5.9 23.4 5.4 21Q4.8 18.5 4.7 16Q1.9 14.8 1.9 12.4Q1.9 10.9 2.9 10Q3.9 9 5.3 9Q6.6 9 7.6 10Q8.6 11 8.6 12.4Q8.6 12.4 8.5 13.5Q8.3 14.5 8.3 14.6Q8.3 17.3 12.1 21.1Q12.4 18.7 12.4 16Q12.4 13.8 12 12.6Q11.6 11.3 11.1 11.1Q10.5 10.8 10.1 10.2Q9.7 9.6 9.7 8.5Q9.7 7.1 10.7 6.1Q11.7 5.2 13.1 5.2Q14.4 5.2 15.4 6.2Q16.4 7.1 16.4 8.5Q16.4 8.6 16.2 9.7Q16 10.9 16 11.1Q16 14.4 19.2 21.2Q20.5 15.6 20.5 12.7Q20.5 10.5 19.9 8.8Q19.2 7 19.2 6.9Q19.2 5.5 20.2 4.5Q21.2 3.6 22.6 3.6Q23.9 3.6 24.8 4.6Q25.8 5.5 25.8 6.9Q25.8 7.2 25.1 8.9Q24.5 10.5 24.5 12.7Q24.5 15.6 25.8 21.2Q29 14.4 29 11.1Q29 10.8 28.8 9.8Q28.6 8.8 28.6 8.5Q28.6 7.1 29.6 6.1Q30.6 5.2 32 5.2Q33.3 5.2 34.3 6.2Q35.3 7.1 35.3 8.5Q35.3 9.4 35 9.9Q34.8 10.4 34.4 10.8Q33.9 11.1 33.5 11.6Q33.1 12.1 32.8 13.2Q32.6 14.4 32.6 16.1Q32.6 18.7 32.9 21.1Q36.7 17.3 36.7 14.6Q36.7 13.2 36.4 12.4Q36.4 11 37.4 10Q38.3 9 39.7 9Q41.1 9 42.1 10Q43.1 11 43.1 12.4Q43.1 14.7 40.3 16Q40 19.7 39.1 22.9Q38.2 26.1 38.2 26.7Q38.2 27.2 36 29.8Q33.8 32.5 33.8 33.5ZM22.6 5.3Q21.9 5.3 21.5 5.7Q21.1 6.1 21.1 6.8Q21.1 7.4 21.5 7.9Q21.9 8.3 22.6 8.3Q24 8.3 24 6.8Q24 6.2 23.6 5.7Q23.2 5.3 22.6 5.3ZM33.2 28.4Q33.2 27.4 29.7 27Q26.2 26.5 22.6 26.5Q19.1 26.5 15.5 27Q11.8 27.5 11.8 28.5Q11.8 29.3 13.4 29.3Q14.7 29.3 17.8 29.1Q20.8 28.9 22.6 28.9Q24.5 28.9 28 29.1Q31.6 29.3 31.8 29.3Q33.2 29.3 33.2 28.4Z","s":"M33.8 33.5Q33.8 33.8 34.6 35.7Q35.4 37.7 35.4 39.2Q35.4 40.6 31.4 41.3Q27.3 41.9 22.5 41.9Q17 41.9 13.3 41.1Q9.6 40.4 9.6 39.2Q9.6 37.6 10.4 35.7Q11.2 33.8 11.2 33.5Q11.2 32.5 9 29.9Q6.8 27.3 6.8 26.7Q6.8 26.3 6.3 24.9Q5.9 23.4 5.4 21Q4.8 18.5 4.7 16Q1.9 14.8 1.9 12.4Q1.9 10.9 2.9 10Q3.9 9 5.3 9Q6.6 9 7.6 10Q8.6 11 8.6 12.4Q8.6 12.4 8.5 13.5Q8.3 14.5 8.3 14.6Q8.3 17.3 12.1 21.1Q12.4 18.7 12.4 16Q12.4 13.8 12 12.6Q11.6 11.3 11.1 11.1Q10.5 10.8 10.1 10.2Q9.7 9.6 9.7 8.5Q9.7 7.1 10.7 6.1Q11.7 5.2 13.1 5.2Q14.4 5.2 15.4 6.2Q16.4 7.1 16.4 8.5Q16.4 8.6 16.2 9.7Q16 10.9 16 11.1Q16 14.4 19.2 21.2Q20.5 15.6 20.5 12.7Q20.5 10.5 19.9 8.8Q19.2 7 19.2 6.9Q19.2 5.5 20.2 4.5Q21.2 3.6 22.6 3.6Q23.9 3.6 24.8 4.6Q25.8 5.5 25.8 6.9Q25.8 7.2 25.1 8.9Q24.5 10.5 24.5 12.7Q24.5 15.6 25.8 21.2Q29 14.4 29 11.1Q29 10.8 28.8 9.8Q28.6 8.8 28.6 8.5Q28.6 7.1 29.6 6.1Q30.6 5.2 32 5.2Q33.3 5.2 34.3 6.2Q35.3 7.1 35.3 8.5Q35.3 9.4 35 9.9Q34.8 10.4 34.4 10.8Q33.9 11.1 33.5 11.6Q33.1 12.1 32.8 13.2Q32.6 14.4 32.6 16.1Q32.6 18.7 32.9 21.1Q36.7 17.3 36.7 14.6Q36.7 13.2 36.4 12.4Q36.4 11 37.4 10Q38.3 9 39.7 9Q41.1 9 42.1 10Q43.1 11 43.1 12.4Q43.1 14.7 40.3 16Q40 19.7 39.1 22.9Q38.2 26.1 38.2 26.7Q38.2 27.2 36 29.8Q33.8 32.5 33.8 33.5Z"},"bR":{"f":"M8.8 41.8 7.6 40.7V36.5L13.6 30.6V18.8L9 14.2V8.9L10.7 7.3H14.9L15.9 8.3V9.7H18.2V8.3L19.2 7.3H25.8L26.8 8.3V9.7H29.1V8.3L30.1 7.3H34.3L36 8.9V14.2L31.4 18.8V30.6L37.4 36.5V40.7L36.2 41.8ZM15.8 29.2V31.2H29.2V29.2ZM15.8 18.5V20.5H29.2V18.5Z","s":"M8.8 41.8 7.6 40.7V36.5L13.6 30.6V18.8L9 14.2V8.9L10.7 7.3H14.9L15.9 8.3V9.7H18.2V8.3L19.2 7.3H25.8L26.8 8.3V9.7H29.1V8.3L30.1 7.3H34.3L36 8.9V14.2L31.4 18.8V30.6L37.4 36.5V40.7L36.2 41.8Z"},"bB":{"f":"M19.6 28.1Q16.6 28.1 16.6 29.1Q16.6 30.1 22.5 30.1Q28.4 30.1 28.4 29.1Q28.4 28.1 25.4 28.1ZM22.5 26.3Q26.3 26.3 27.4 26.2Q28.4 26 28.4 25.4Q28.4 24.5 25.4 24.5H18.9Q16.6 24.5 16.6 25.4Q16.6 26 17.8 26.2Q18.9 26.3 22.5 26.3ZM14.4 27.3Q14.4 27.2 13.5 26.1Q12.7 24.9 11.7 23.1Q10.8 21.2 10.8 19.5Q10.8 15.6 13.7 12.8Q16.6 10 19.7 9.3Q18.4 7.7 18.4 6Q18.4 4.2 19.5 3.3Q20.7 2.3 22.5 2.3Q24.3 2.3 25.5 3.3Q26.7 4.3 26.7 6Q26.7 7.6 25.3 9.3Q28.7 10.1 31.4 12.7Q34.2 15.4 34.2 19.5Q34.2 22.9 30.6 27Q30.6 27.4 31.2 29.2Q31.7 31 31.8 31.6Q31.8 33.6 27.6 34Q30.7 35.2 33.3 35.2Q36.8 35 36.8 35Q38.6 35 39.7 36Q40.7 36.9 41.7 38.8Q41.5 39 40.7 40.5Q39.8 41.9 39.1 42.6Q38.4 43.3 37.6 43.6Q37.4 42.7 35.6 42.3Q33.8 41.9 31.5 41.8Q29.3 41.8 26.6 41Q24 40.3 22.5 38.8Q20.7 40.7 17 41.3Q13.3 41.9 10.5 42.2Q7.7 42.5 7.4 43.6Q6.6 43.2 5.9 42.5Q5.2 41.8 4.4 40.5Q3.6 39.3 3.3 38.8Q4.2 37 5.3 36Q6.4 35 8.2 35Q11.3 35.2 11.7 35.2Q14.4 35.2 17.4 34Q13.2 33.6 13.2 31.6Q13.2 31.1 13.8 29.5Q14.4 27.8 14.4 27.3ZM23.6 21.5V18.8H25.6V16.5H23.6V14H21.4V16.5H19.4V18.8H21.4V21.5ZM22.5 4.8Q21.8 4.8 21.4 5.2Q21 5.6 21 6.2Q21 6.8 21.4 7.2Q21.8 7.7 22.5 7.7Q24 7.7 24 6.2Q24 4.8 22.5 4.8Z","s":"M14.4 27.3Q14.4 27.2 13.5 26.1Q12.7 24.9 11.7 23.1Q10.8 21.2 10.8 19.5Q10.8 15.6 13.7 12.8Q16.6 10 19.7 9.3Q18.4 7.7 18.4 6Q18.4 4.2 19.5 3.3Q20.7 2.3 22.5 2.3Q24.3 2.3 25.5 3.3Q26.7 4.3 26.7 6Q26.7 7.6 25.3 9.3Q28.7 10.1 31.4 12.7Q34.2 15.4 34.2 19.5Q34.2 22.9 30.6 27Q30.6 27.4 31.2 29.2Q31.7 31 31.8 31.6Q31.8 33.6 27.6 34Q30.7 35.2 33.3 35.2Q36.8 35 36.8 35Q38.6 35 39.7 36Q40.7 36.9 41.7 38.8Q41.5 39 40.7 40.5Q39.8 41.9 39.1 42.6Q38.4 43.3 37.6 43.6Q37.4 42.7 35.6 42.3Q33.8 41.9 31.5 41.8Q29.3 41.8 26.6 41Q24 40.3 22.5 38.8Q20.7 40.7 17 41.3Q13.3 41.9 10.5 42.2Q7.7 42.5 7.4 43.6Q6.6 43.2 5.9 42.5Q5.2 41.8 4.4 40.5Q3.6 39.3 3.3 38.8Q4.2 37 5.3 36Q6.4 35 8.2 35Q11.3 35.2 11.7 35.2Q14.4 35.2 17.4 34Q13.2 33.6 13.2 31.6Q13.2 31.1 13.8 29.5Q14.4 27.8 14.4 27.3Z"},"bN":{"f":"M12.9 20.7Q13.9 20.7 15.4 19.6Q16.9 18.4 16.9 17.5Q16.9 16.7 15.5 16.7Q14.3 16.7 13.2 17.6Q12.1 18.6 12.1 19.6Q12.1 20.7 12.9 20.7ZM4.7 30.4Q5 28.2 8.6 20.7Q12.2 13.2 12.2 10.9Q12.2 9.2 11.9 7.7Q16.5 7.7 18.5 9.7Q20.2 6.9 21.1 6.9Q22.7 7.8 23.2 8.6Q23.7 9.3 24.5 11.7Q25 11.6 25.4 11.6Q26.7 11.6 28.4 12.2Q30.1 12.9 32.2 14.7Q34.3 16.5 36.1 19.2Q37.9 21.9 39.1 26.5Q40.3 31.1 40.3 36.9Q40.3 39.6 40.1 41.8H15.1Q15.1 39.2 16.1 37.1Q17.1 35 18.3 33.8Q19.4 32.6 20.5 30.9Q21.6 29.2 21.8 27.4Q19.6 28.2 17.9 29.7Q16.2 31.2 15.6 32.4Q14.9 33.6 14.3 34.6Q13.7 35.5 13.1 35.5Q11.6 35.5 11.6 33.6Q11 34.4 10.3 34.4Q10.3 34.4 9.1 34.1Q7.2 33.6 6.4 32.9Q5.5 32.2 4.7 30.4ZM8.3 28.5Q7.5 28.5 6.9 29.1Q6.3 29.6 6.3 30.4Q6.3 30.6 6.5 31Q7.3 31 7.9 30.5Q8.4 30 8.4 29.3Q8.4 29.1 8.3 28.5ZM37.4 37.7Q37.4 33.3 36.4 29.3Q35.3 25.3 33.8 22.7Q32.2 20 30.4 18Q28.5 16 26.9 15.1Q25.3 14.2 24.2 14.2Q23.1 14.3 23.1 15Q23.1 15.3 23.2 15.4Q29.1 18.4 32.2 24.5Q35.2 30.7 35.2 37.6Q35.2 39.2 36.3 39.2Q37.4 39.2 37.4 37.7Z","s":"M4.7 30.4Q5 28.2 8.6 20.7Q12.2 13.2 12.2 10.9Q12.2 9.2 11.9 7.7Q16.5 7.7 18.5 9.7Q20.2 6.9 21.1 6.9Q22.7 7.8 23.2 8.6Q23.7 9.3 24.5 11.7Q25 11.6 25.4 11.6Q26.7 11.6 28.4 12.2Q30.1 12.9 32.2 14.7Q34.3 16.5 36.1 19.2Q37.9 21.9 39.1 26.5Q40.3 31.1 40.3 36.9Q40.3 39.6 40.1 41.8H15.1Q15.1 39.2 16.1 37.1Q17.1 35 18.3 33.8Q19.4 32.6 20.5 30.9Q21.6 29.2 21.8 27.4Q19.6 28.2 17.9 29.7Q16.2 31.2 15.6 32.4Q14.9 33.6 14.3 34.6Q13.7 35.5 13.1 35.5Q11.6 35.5 11.6 33.6Q11 34.4 10.3 34.4Q10.3 34.4 9.1 34.1Q7.2 33.6 6.4 32.9Q5.5 32.2 4.7 30.4Z"},"bP":{"f":"M26.6 14.9Q30.7 16.6 30.7 20.5Q30.7 22.4 29.7 23.9Q28.8 25.4 27.3 25.9Q31.4 27.9 33.3 30.9Q35.2 33.9 35.2 39Q35.2 41.1 35.2 41.8H9.8Q9.8 41.1 9.8 39Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.5Q14.3 16.6 18.4 14.9Q17.4 13.1 17.4 11.5Q17.4 9.6 18.9 8.3Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.2 26.6 14.9Z","s":"M26.6 14.9Q30.7 16.6 30.7 20.5Q30.7 22.4 29.7 23.9Q28.8 25.4 27.3 25.9Q31.4 27.9 33.3 30.9Q35.2 33.9 35.2 39Q35.2 41.1 35.2 41.8H9.8Q9.8 41.1 9.8 39Q9.8 33.9 11.7 30.9Q13.6 27.9 17.7 25.9Q16.2 25.4 15.3 23.9Q14.3 22.4 14.3 20.5Q14.3 16.6 18.4 14.9Q17.4 13.1 17.4 11.5Q17.4 9.6 18.9 8.3Q20.5 7 22.5 7Q24.6 7 26.1 8.3Q27.6 9.6 27.6 11.5Q27.6 13.2 26.6 14.9Z"}};
+window.SHLYAPA_PGN = "[Event \"Ничья из шляпы · Лойд: пат за 10 ходов\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Лойд: пат за 10 ходов\"]\n[Orientation \"white\"]\n[White \"Сэм Лойд\"]\n[Black \"композиция\"]\n\n{ Самый короткий известный пат. } 1. e3 a5 2. Qh5 Ra6 3. Qxa5 h5 4. Qxc7 Rah6 5. h4 f6 6. Qxd7+ Kf7 7. Qxb7 Qd3 8. Qxb8 Qh7 9. Qxc8 Kg6 10. Qe6 { Пат! } *\n\n[Event \"Ничья из шляпы · Лойд: пат с 32 фигурами\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Лойд: пат с 32 фигурами\"]\n[Orientation \"white\"]\n[White \"Сэм Лойд\"]\n[Black \"композиция\"]\n\n{ Все фигуры на доске. } 1. d4 d6 2. Qd2 e5 3. a4 e4 4. Qf4 f5 5. h3 Be7 6. Qh2 Be6 7. Ra3 c5 8. Rg3 Qa5+ 9. Nd2 Bh4 10. f3 Bb3 11. d5 e3 12. c4 f4 { Белые в пате. } *\n\n[Event \"Ничья из шляпы · Мат или пат? 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 1\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"k7/8/1QK5/8/8/8/8/8 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: пат. Ферзь b6 стережёт a7, b7 и b8, а шаха нет. Пат! }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 2\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"k7/1Q6/2K5/8/8/8/8/8 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: мат. Ферзь b7 под защитой короля: шах, и бежать некуда. Мат. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 3\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 3\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: мат. Свои пешки заперли короля. Мат по последней горизонтали. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 4\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 4\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"7k/5Q2/6K1/8/8/8/8/8 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: пат. Ферзь закрыл g7 и g8, король g6 — h7. Шаха нет: пат. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 5\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 5\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"7k/4N1np/7P/8/8/8/1Q6/K7 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: пат. Конь g7 связан ферзём, пешка h7 упёрлась, поле g8 бьёт конь e7. Пат! }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 6\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 6\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"7k/4N1bp/7P/8/8/8/1Q6/K7 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: есть ход С:b2. Слон тоже связан, но ходит вдоль связки — и даже бьёт ферзя: С:b2! Это не пат. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 7\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 7\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: мат. Свои фигуры окружили короля. Спёртый мат! }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 8\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 8\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"8/8/8/8/8/5K2/6R1/7k b - - 0 1\"]\n\n{ Мат, пат или есть ход? Ответ: пат. Ладья g2 под защитой короля f3, а шаха нет. Пат. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 9\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 9\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"7k/5K2/6P1/8/pP6/P7/8/8 b - b3 0 1\"]\n\n{ Белые только что сыграли b2–b4. Что на доске? Ответ: есть ход a:b3 на проходе. Есть ход a4:b3 — взятие на проходе! Белые только что пошли пешкой через поле b3. }  *\n\n[Event \"Ничья из шляпы · Мат или пат? 10\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Мат или пат? 10\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"rn2k1nr/pp4pp/3p4/q1pP4/P1P2p1b/1b2pPRP/1P1NP1PQ/2B1KBNR w Kkq - 0 13\"]\n\n{ Позиция после 12 ходов. Что у белых? Ответ: пат. Все 32 фигуры на доске — и у белых нет ни одного хода. Пат Сэма Лойда! }  *\n\n[Event \"Ничья из шляпы · Ферзь-камикадзе\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Ферзь-камикадзе\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"7k/b5p1/7p/3Q4/8/7p/2q4P/7K w - - 0 1\"]\n\n{ Найдите пат. } 1. Qg8+ Kxg8 *\n\n[Event \"Ничья из шляпы · Угол-ловушка\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Угол-ловушка\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"8/8/8/5K2/1Q6/8/2p5/1k6 b - - 0 1\"]\n\n{ Ход чёрных: куда спрятать короля? } 1... Ka1 2. Qe1+ Kb2 3. Qf2 Kb1 *\n\n[Event \"Ничья из шляпы · Не попадитесь сами\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не попадитесь сами\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"7k/8/5K2/8/8/8/8/6R1 w - - 0 1\"]\n\n{ Мат в 2, не поставив пат. } 1. Kf7 Kh7 2. Rh1# *\n\n[Event \"Ничья из шляпы · Ладья-камикадзе\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Ладья-камикадзе\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/8/4k3/8/8/1R5p/1q3p1P/7K w - - 0 1\"]\n\n{ Шахуйте ладьёй без остановки. } 1. Re3+ Kd7 2. Rd3+ Kc8 3. Rc3+ Kb8 4. Rc8+ Ka7 5. Rc7+ *\n\n[Event \"Ничья из шляпы · В духе Эванса\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"В духе Эванса\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"2Q5/5Rpk/6p1/7p/7P/6q1/4r3/7K w - - 0 1\"]\n\n{ Избавьтесь от фигур с шахом. } 1. Qh8+ Kxh8 2. Rf8+ Kh7 3. Rh8+ Kxh8 *\n\n[Event \"Ничья из шляпы · Маятник\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Маятник\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"6k1/1p4p1/p1Q5/8/8/8/rq3PPP/6K1 w - - 0 1\"]\n\n{ Вечный шах. } 1. Qe8+ Kh7 2. Qh5+ Kg8 3. Qe8+ Kh7 4. Qh5+ Kg8 5. Qe8+ Kh7 *\n\n[Event \"Ничья из шляпы · Не тот слон: гонка\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон: гонка\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"8/8/3k4/P7/8/1K6/5B2/8 b - - 0 1\"]\n\n{ Ход чёрных: успейте в угол. } 1... Kc7 2. a6 Kb8 3. Bg1 Ka8 *\n\n[Event \"Ничья из шляпы · Сааведра, 1895\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Сааведра, 1895\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/8/1KP5/3r4/8/8/8/k7 w - - 0 1\"]\n\n{ Белые начинают и выигрывают. } 1. c7 Rd6+ 2. Kb5 Rd5+ 3. Kb4 Rd4+ 4. Kb3 Rd3+ 5. Kc2 Rd4 6. c8=R Ra4 7. Kb3 *\n\n[Event \"Ничья из шляпы · Семь ловушек\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Семь ловушек\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"7k/8/7K/8/8/1Q6/8/8 w - - 0 1\"]\n\n{ Мат в 1, не поставив пат. } 1. Qb8# *\n\n[Event \"Ничья из шляпы · Разоблачите не того слона\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Разоблачите не того слона\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/8/3k4/P7/8/1K6/5B2/8 w - - 0 1\"]\n\n{ Ход белых: не пустите короля в угол. } 1. a6 Kc7 2. Ba7 *\n\n[Event \"Ничья из шляпы · Последний фокус\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Последний фокус\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"8/8/8/8/5K2/1Q6/p7/1k6 b - - 0 1\"]\n\n{ Ход чёрных: ладейная пешка против ферзя. } 1... Ka1 2. Qe3 Kb1 3. Qe4+ Kb2 *\n\n[Event \"Ничья из шляпы · Не тот слон 1\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 1\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/1k6/8/P7/2K5/3B4/8/8 w - - 0 1\"]\n\n{ Слон светлопольный, пешка «a». Ответ: выигрыш. Угол a8 светлый — и слон светлый. Он выгонит короля из угла. Выигрыш. }  *\n\n[Event \"Ничья из шляпы · Не тот слон 2\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 2\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/1k6/8/P7/2K5/4B3/8/8 w - - 0 1\"]\n\n{ Слон тёмнопольный, пешка «a». Ответ: ничья. Угол a8 светлый, а слон тёмный: прогнать короля из угла нельзя. Ничья! }  *\n\n[Event \"Ничья из шляпы · Не тот слон 3\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 3\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/6k1/8/7P/5K2/8/4B3/8 w - - 0 1\"]\n\n{ Слон светлопольный, пешка «h». Ответ: ничья. Угол h8 тёмный, слон светлый. Ничья. }  *\n\n[Event \"Ничья из шляпы · Не тот слон 4\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 4\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/6k1/8/7P/5K2/4B3/8/8 w - - 0 1\"]\n\n{ Слон тёмнопольный, пешка «h». Ответ: выигрыш. Угол h8 тёмный — слон того же цвета. Выигрыш. }  *\n\n[Event \"Ничья из шляпы · Не тот слон 5\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 5\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/1k6/8/P7/P1K5/4B3/8/8 w - - 0 1\"]\n\n{ Две пешки «a» и тёмнопольный слон. Ответ: ничья. Даже две пешки не помогают: угол a8 светлый. Ничья! }  *\n\n[Event \"Ничья из шляпы · Не тот слон 6\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Не тот слон 6\"]\n[Orientation \"white\"]\n[SetUp \"1\"]\n[FEN \"8/2k5/8/1P6/2K5/4B3/8/8 w - - 0 1\"]\n\n{ Пешка «b» и тёмнопольный слон. Ответ: выигрыш. Фокус работает только с ладейной пешкой. Пешка «b» выигрывает с любым слоном. }  *\n\n[Event \"Ничья из шляпы · Deep Blue — Каспаров, 1997\"]\n[Site \"Онлайн-урок\"]\n[Result \"1-0\"]\n[ChapterName \"Deep Blue — Каспаров, 1997\"]\n[Orientation \"white\"]\n[White \"Deep Blue\"]\n[Black \"Каспаров\"]\n[Date \"1997.05.04\"]\n\n{ Нью-Йорк, 4 мая 1997, 2-я партия матча. } 1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 4. Ba4 Nf6 5. O-O Be7 6. Re1 b5 7. Bb3 d6 8. c3 O-O 9. h3 h6 10. d4 Re8 11. Nbd2 Bf8 12. Nf1 Bd7 13. Ng3 Na5 14. Bc2 c5 15. b3 Nc6 16. d5 Ne7 17. Be3 Ng6 18. Qd2 Nh7 19. a4 Nh4 20. Nxh4 Qxh4 21. Qe2 Qd8 22. b4 Qc7 23. Rec1 c4 24. Ra3 Rec8 25. Rca1 Qd8 26. f4 Nf6 27. fxe5 dxe5 28. Qf1 Ne8 29. Qf2 Nd6 30. Bb6 Qe8 31. R3a2 Be7 32. Bc5 Bf8 33. Nf5 Bxf5 34. exf5 f6 35. Bxd6 Bxd6 36. axb5 axb5 37. Be4 Rxa2 38. Qxa2 Qd7 39. Qa7 Rc7 40. Qb6 Rb7 41. Ra8+ Kf7 42. Qa6 Qc7 43. Qc6 Qb6+ 44. Kf1 Rb8 45. Ra6 { Каспаров сдался. А спасение было: 45...Qe3! 46.Qxd6 Re8 47.h4 h5!! и вечный шах. } 1-0\n\n[Event \"Ничья из шляпы · Спасение Каспарова\"]\n[Site \"Онлайн-урок\"]\n[Result \"*\"]\n[ChapterName \"Спасение Каспарова\"]\n[Orientation \"black\"]\n[SetUp \"1\"]\n[FEN \"1r6/5kp1/RqQb1p1p/1p1PpP2/1Pp1B3/2P4P/6P1/5K2 b - - 14 45\"]\n\n{ Вы — Каспаров. Найдите вечный шах. } 45... Qe3 46. Qxd6 Re8 47. h4 h5 48. Bf3 Qc1+ 49. Kf2 Qd2+ 50. Kf1 Qc1+ *\n";
+window.SHLYAPA = {"start":"rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1","g":{"q1":{"fen":"7k/b5p1/7p/3Q4/8/7p/2q4P/7K w - - 0 1","side":"w","G":{"7k/b5p1/7p/3Q4/8/7p/2q4P/7K w -":{"g":{"d5g8":"h8g8","d5d8":"h8h7"},"b":{"d5a8":"a7b8","d5d2":"c2b1","d5f3":"c2b1","d5g5":"c2b1","d5d1":"c2d1","d5a2":"c2c1","d5g2":"h3g2","d5b3":"c2g2","d5d3":"c2g2","d5c4":"c2g2","d5d4":"c2g2","d5e4":"c2e4","d5a5":"c2g2","d5b5":"c2g2","d5c5":"c2g2","d5e5":"c2g2","d5f5":"c2g2","d5h5":"c2g2","d5c6":"c2c6","d5d6":"c2g2","d5e6":"c2g2","d5b7":"c2c1","d5d7":"c2g2","d5f7":"c2g2"},"e":[]},"3Q4/b5pk/7p/8/8/7p/2q4P/7K w -":{"g":{"d8d3":"c2d3","d8g8":"h7g6","d8h8":"h7g6"},"b":{"d8d5":"c2c1","d8g5":"c2b1","d8d2":"c2b1","d8d1":"c2d1","d8d4":"c2g2","d8h4":"c2g2","d8a5":"c2g2","d8b6":"c2g2","d8d6":"c2g2","d8f6":"c2g2","d8c7":"c2g2","d8d7":"c2g2","d8e7":"c2g2","d8a8":"c2b1","d8b8":"c2c1","d8c8":"c2d1","d8e8":"c2g2","d8f8":"c2g2"},"e":[]},"6Q1/b5p1/6kp/8/8/7p/2q4P/7K w -":{"g":{"g8g7":0,"g8h7":0,"g8e6":0,"g8f7":0,"g8e8":0},"b":{"g8d5":"c2c1","g8a2":"c2c1","g8b3":"c2g2","g8c4":"c2g2","g8a8":"c2b1","g8b8":"c2c1","g8c8":"c2d1","g8d8":"c2g2","g8f8":"c2g2","g8h8":"c2g2"},"e":[]},"7Q/b5p1/6kp/8/8/7p/2q4P/7K w -":{"g":{"h8g7":0,"h8h7":0,"h8h6":0,"h8e8":0},"b":{"h8a8":"c2c1","h8b8":"c2c1","h8c8":"c2d1","h8d8":"c2g2","h8f8":"c2g2","h8g8":"c2g2"},"e":[]}}},"pc":{"fen":"8/8/8/5K2/1Q6/8/2p5/1k6 b - - 0 1","side":"b","G":{"8/8/8/5K2/1Q6/8/2p5/1k6 b -":{"g":{"b1a1":"b4e1","b1a2":"b4c5"},"b":{"b1c1":"f5e4"},"e":[]},"8/8/8/5K2/8/8/2p5/k3Q3 b -":{"g":{"a1b2":"e1f2"},"b":{"a1a2":"e1c1","c2c1q":"e1c1","c2c1r":"e1c1","c2c1b":"e1c1","c2c1n":"e1c1"},"e":[]},"8/8/8/5K2/8/8/1kp2Q2/8 b -":{"g":{"b2b1":0,"b2c3":0,"b2a1":0,"b2c1":0,"b2b3":0},"b":{"b2a3":"f2c2","b2a2":"f2c2"},"e":[]},"8/8/8/2Q2K2/8/8/k1p5/8 b -":{"g":{"a2b2":"c5b5","a2a1":"f5g5","a2b1":"c5b4","a2b3":"c5c8"},"b":{"c2c1q":"c5c1","c2c1r":"c5c1","c2c1b":"c5c1","c2c1n":"c5c1"},"e":[]},"8/8/8/1Q3K2/8/8/1kp5/8 b -":{"g":{"b2a2":0,"b2a1":0,"b2a3":0,"b2c3":0},"b":{"b2c1":"f5e4"},"e":[]},"8/8/8/2Q3K1/8/8/2p5/k7 b -":{"g":{"a1b2":0,"a1b1":0},"b":{"c2c1q":"c5c1","c2c1r":"c5c1","c2c1b":"c5c1","c2c1n":"c5c1","a1a2":"c5c2"},"e":[]},"2Q5/8/8/5K2/8/1k6/2p5/8 b -":{"g":{"b3b2":0},"b":{"c2c1r":"c8c1","c2c1b":"c8c1","c2c1n":"c8c1","c2c1q":"c8c1","b3b4":"c8c2","b3a4":"c8c2","b3a3":"c8c2","b3a2":"c8c2"},"e":[]}}},"r2":{"fen":"7k/8/5K2/8/8/8/8/6R1 w - - 0 1","side":"w","G":{"7k/8/5K2/8/8/8/8/6R1 w -":{"g":{"f6f7":"h8h7"},"b":{"g1g6":"h8h7","g1h1":"h8g8","g1b1":"h8g8","g1c1":"h8g8","g1e1":"h8g8","g1d1":"h8g8","f6g6":"h8g8","g1a1":"h8g8","g1g2":"h8h7","g1g4":"h8h7","g1g5":"h8h7","g1f1":"h8h7","g1g3":"h8h7","f6f5":"h8h7","f6e6":"h8h7","f6e7":"h8h7","f6e5":"h8h7","f6g5":"h8g7","g1g7":0,"g1g8":"h8g8"},"e":[]},"8/5K1k/8/8/8/8/8/6R1 w -":{"g":{"g1h1":0},"b":{"g1g6":"h7h8","g1a1":"h7h6","g1g5":"h7h6","g1c1":"h7h6","g1b1":"h7h6","g1e1":"h7h6","g1f1":"h7h6","g1d1":"h7h6","f7f6":"h7h8","g1g4":"h7h6","f7e6":"h7h6","g1g3":"h7h6","f7e8":"h7h6","g1g7":"h7h6","f7f8":"h7h6","g1g2":"h7h6","g1g8":"h7h6","f7e7":"h7h6"},"e":[]}}},"mr1":{"fen":"8/8/4k3/8/8/1R5p/1q3p1P/7K w - - 0 1","side":"w","G":{"8/8/4k3/8/8/1R5p/1q3p1P/7K w -":{"g":{"b3e3":"e6d7","b3b6":"e6f5"},"b":{"b3g3":"f2f1q","b3a3":"f2f1q","b3c3":"f2f1q","b3d3":"f2f1q","b3f3":"b2a1","b3h3":"f2f1q","b3b4":"f2f1q","b3b5":"f2f1q","b3b2":"f2f1q","b3b7":"f2f1q","b3b8":"f2f1q"},"e":[]},"8/3k4/8/8/8/4R2p/1q3p1P/7K w -":{"g":{"e3d3":"d7c8","e3e7":"d7c6"},"b":{"e3g3":"f2f1q","e3e1":"f2e1q","e3e2":"f2f1q","e3a3":"f2f1q","e3b3":"f2f1q","e3c3":"f2f1q","e3f3":"b2a1","e3h3":"f2f1q","e3e4":"f2f1q","e3e5":"f2f1q","e3e6":"f2f1q","e3e8":"f2f1q"},"e":[]},"2k5/8/8/8/8/3R3p/1q3p1P/7K w -":{"g":{"d3c3":"c8b8","d3d8":"c8b7"},"b":{"d3d1":"f2f1q","d3g3":"f2f1q","d3d2":"f2f1q","d3a3":"f2f1q","d3b3":"f2f1q","d3e3":"f2f1q","d3f3":"b2a1","d3h3":"f2f1q","d3d4":"f2f1q","d3d5":"f2f1q","d3d6":"f2f1q","d3d7":"f2f1q"},"e":[]},"1k6/8/8/8/8/2R4p/1q3p1P/7K w -":{"g":{"c3c8":"b8a7","c3b3":"b8a8"},"b":{"c3g3":"f2f1q","c3c1":"b2c1","c3c2":"f2f1q","c3a3":"f2f1q","c3d3":"f2f1q","c3e3":"f2f1q","c3f3":"b2a1","c3h3":"f2f1q","c3c4":"f2f1q","c3c5":"f2f1q","c3c6":"f2f1q","c3c7":"f2f1q"},"e":[]},"2R5/k7/8/8/8/7p/1q3p1P/7K w -":{"g":{"c8c7":0,"c8a8":0},"b":{"c8g8":"f2f1q","c8c1":"b2c1","c8c2":"f2f1q","c8c3":"f2f1q","c8c4":"f2f1q","c8c5":"f2f1q","c8c6":"f2f1q","c8b8":"f2f1q","c8d8":"f2f1q","c8e8":"f2f1q","c8f8":"b2a1","c8h8":"f2f1q"},"e":[]},"k7/8/8/8/8/1R5p/1q3p1P/7K w -":{"g":{"b3a3":0,"b3b8":0},"b":{"b3g3":"f2f1q","b3c3":"f2f1q","b3d3":"f2f1q","b3e3":"f2f1q","b3f3":"b2a1","b3h3":"f2f1q","b3b4":"f2f1q","b3b5":"f2f1q","b3b2":"f2f1q","b3b6":"f2f1q","b3b7":"f2f1q"},"e":[]},"3R4/1k6/8/8/8/7p/1q3p1P/7K w -":{"g":{"d8b8":"b7a6","d8d7":"b7a6"},"b":{"d8d1":"f2f1q","d8g8":"f2f1q","d8d2":"f2f1q","d8d3":"f2f1q","d8d4":"f2f1q","d8d5":"f2f1q","d8d6":"f2f1q","d8a8":"f2f1q","d8c8":"f2f1q","d8e8":"f2f1q","d8f8":"b2a1","d8h8":"f2f1q"},"e":[]},"1R6/8/k7/8/8/7p/1q3p1P/7K w -":{"g":{"b8a8":0,"b8b6":0},"b":{"b8g8":"f2f1q","b8b2":"f2f1q","b8b3":"f2f1q","b8b4":"f2f1q","b8b5":"f2f1q","b8b7":"f2f1q","b8c8":"f2f1q","b8d8":"f2f1q","b8e8":"f2f1q","b8f8":"b2a1","b8h8":"f2f1q"},"e":[]},"8/3R4/k7/8/8/7p/1q3p1P/7K w -":{"g":{"d7d6":0,"d7a7":0},"b":{"d7d1":"f2f1q","d7g7":"f2f1q","d7d2":"f2f1q","d7d3":"f2f1q","d7d4":"f2f1q","d7d5":"f2f1q","d7b7":"f2f1q","d7c7":"f2f1q","d7e7":"f2f1q","d7f7":"b2a1","d7h7":"f2f1q","d7d8":"f2f1q"},"e":[]},"8/4R3/2k5/8/8/7p/1q3p1P/7K w -":{"g":{"e7c7":"c6b5","e7e6":"c6b5"},"b":{"e7g7":"f2f1q","e7e1":"f2e1q","e7e2":"f2f1q","e7e3":"f2f1q","e7e4":"f2f1q","e7e5":"f2f1q","e7a7":"f2f1q","e7b7":"f2f1q","e7d7":"f2f1q","e7f7":"b2a1","e7h7":"f2f1q","e7e8":"f2f1q"},"e":[]},"8/2R5/8/1k6/8/7p/1q3p1P/7K w -":{"g":{"c7c5":"b5a4","c7b7":"b5a4"},"b":{"c7g7":"f2f1q","c7c1":"b2c1","c7c2":"f2f1q","c7c3":"f2f1q","c7c4":"f2f1q","c7c6":"f2f1q","c7a7":"f2f1q","c7d7":"f2f1q","c7e7":"f2f1q","c7f7":"b2a1","c7h7":"f2f1q","c7c8":"f2f1q"},"e":[]},"8/8/8/2R5/k7/7p/1q3p1P/7K w -":{"g":{"c5c4":0,"c5a5":0},"b":{"c5g5":"f2f1q","c5c1":"b2c1","c5c2":"f2f1q","c5c3":"f2f1q","c5b5":"f2f1q","c5d5":"f2f1q","c5e5":"f2f1q","c5f5":"b2a1","c5h5":"f2f1q","c5c6":"f2f1q","c5c7":"f2f1q","c5c8":"f2f1q"},"e":[]},"8/1R6/8/8/k7/7p/1q3p1P/7K w -":{"g":{"b7a7":0,"b7b4":0},"b":{"b7g7":"f2f1q","b7b3":"f2f1q","b7b5":"f2f1q","b7b6":"f2f1q","b7c7":"f2f1q","b7d7":"f2f1q","b7e7":"f2f1q","b7f7":"b2a1","b7b2":"f2f1q","b7h7":"f2f1q","b7b8":"f2f1q"},"e":[]},"8/8/4R3/1k6/8/7p/1q3p1P/7K w -":{"g":{"e6b6":"b5a4","e6e5":"b5a4"},"b":{"e6g6":"f2f1q","e6e1":"f2e1q","e6e2":"f2f1q","e6e3":"f2f1q","e6e4":"f2f1q","e6a6":"f2f1q","e6c6":"f2f1q","e6d6":"f2f1q","e6f6":"b2a1","e6h6":"f2f1q","e6e7":"f2f1q","e6e8":"f2f1q"},"e":[]},"8/8/1R6/8/k7/7p/1q3p1P/7K w -":{"g":{"b6b4":0,"b6a6":0},"b":{"b6g6":"f2f1q","b6b2":"f2f1q","b6b3":"f2f1q","b6b5":"f2f1q","b6c6":"f2f1q","b6d6":"f2f1q","b6e6":"f2f1q","b6f6":"b2a1","b6h6":"f2f1q","b6b7":"f2f1q","b6b8":"f2f1q"},"e":[]},"8/8/8/4R3/k7/7p/1q3p1P/7K w -":{"g":{"e5a5":0,"e5e4":0},"b":{"e5g5":"f2f1q","e5e1":"f2e1q","e5e2":"f2f1q","e5e3":"f2f1q","e5b5":"f2f1q","e5c5":"f2f1q","e5d5":"f2f1q","e5f5":"b2a1","e5h5":"f2f1q","e5e6":"f2f1q","e5e7":"f2f1q","e5e8":"f2f1q"},"e":[]},"8/8/1R6/5k2/8/7p/1q3p1P/7K w -":{"g":{"b6f6":"f5e4","b6b5":"f5g4"},"b":{"b6g6":"f2f1q","b6b2":"f2f1q","b6b3":"f2f1q","b6b4":"f2f1q","b6a6":"f2f1q","b6c6":"f2f1q","b6d6":"f2f1q","b6e6":"f2f1q","b6h6":"f2f1q","b6b7":"f2f1q","b6b8":"f2f1q"},"e":[]},"8/8/5R2/8/4k3/7p/1q3p1P/7K w -":{"g":{"f6e6":"e4d3","f6f4":"e4d3"},"b":{"f6f2":"b2a1","f6g6":"f2f1q","f6f3":"b2a1","f6f5":"b2a1","f6a6":"f2f1q","f6b6":"f2f1q","f6c6":"f2f1q","f6d6":"f2f1q","f6h6":"f2f1q","f6f7":"b2a1","f6f8":"b2a1"},"e":[]},"8/8/4R3/8/8/3k3p/1q3p1P/7K w -":{"g":{"e6d6":"d3c2","e6e3":"d3c2"},"b":{"e6g6":"f2f1q","e6e1":"f2e1q","e6e2":"f2f1q","e6e4":"f2f1q","e6e5":"f2f1q","e6a6":"f2f1q","e6b6":"f2f1q","e6c6":"f2f1q","e6f6":"b2a1","e6h6":"f2f1q","e6e7":"f2f1q","e6e8":"f2f1q"},"e":[]},"8/8/3R4/8/8/7p/1qk2p1P/7K w -":{"g":{"d6d2":0},"b":{"d6c6":"c2b1","d6d1":"b2b7","d6g6":"f2f1q","d6d3":"f2f1q","d6d4":"f2f1q","d6d5":"f2f1q","d6a6":"f2f1q","d6b6":"f2f1q","d6e6":"f2f1q","d6f6":"b2c1","d6h6":"f2f1q","d6d7":"f2f1q","d6d8":"f2f1q"},"e":[]},"8/8/8/8/8/4R2p/1qk2p1P/7K w -":{"g":{"e3e2":0},"b":{"e3c3":"c2b1","e3g3":"f2f1q","e3e1":"f2e1q","e3a3":"f2f1q","e3b3":"f2f1q","e3d3":"f2f1q","e3f3":"b2c1","e3h3":"f2f1q","e3e4":"f2f1q","e3e5":"f2f1q","e3e6":"f2f1q","e3e7":"f2f1q","e3e8":"f2f1q"},"e":[]},"8/8/8/8/5R2/3k3p/1q3p1P/7K w -":{"g":{"f4d4":"d3c2","f4f3":"d3c2"},"b":{"f4f2":"b2a1","f4g4":"f2f1q","f4a4":"f2f1q","f4b4":"f2f1q","f4c4":"f2f1q","f4e4":"f2f1q","f4h4":"f2f1q","f4f5":"b2a1","f4f6":"b2a1","f4f7":"b2a1","f4f8":"b2a1"},"e":[]},"8/8/8/8/3R4/7p/1qk2p1P/7K w -":{"g":{"d4d2":0},"b":{"d4c4":"c2b1","d4d1":"b2b7","d4g4":"f2f1q","d4d3":"f2f1q","d4a4":"f2f1q","d4b4":"f2f1q","d4e4":"f2f1q","d4f4":"b2c1","d4h4":"f2f1q","d4d5":"f2f1q","d4d6":"f2f1q","d4d7":"f2f1q","d4d8":"f2f1q"},"e":[]},"8/8/8/8/8/5R1p/1qk2p1P/7K w -":{"g":{"f3f2":0},"b":{"f3c3":"c2b1","f3g3":"f2f1q","f3a3":"f2f1q","f3b3":"f2f1q","f3d3":"f2f1q","f3e3":"f2f1q","f3h3":"f2f1q","f3f4":"b2c1","f3f5":"b2c1","f3f6":"b2c1","f3f7":"b2c1","f3f8":"b2c1"},"e":[]},"8/8/8/1R6/6k1/7p/1q3p1P/7K w -":{"g":{"b5g5":"g4f3","b5b4":"g4h5"},"b":{"b5b2":"f2f1q","b5b3":"f2f1q","b5a5":"f2f1q","b5c5":"f2f1q","b5d5":"f2f1q","b5e5":"f2f1q","b5f5":"b2c1","b5h5":"f2f1q","b5b6":"f2f1q","b5b7":"f2f1q","b5b8":"f2f1q"},"e":[]},"8/8/8/6R1/8/5k1p/1q3p1P/7K w -":{"g":{"g5f5":"f3e2","g5g3":"f3e2"},"b":{"g5g1":"f2g1q","g5g4":"f2f1q","g5g6":"f2f1q","g5g7":"f2f1q","g5g8":"f2f1q","g5g2":"h3g2","g5a5":"f2f1q","g5b5":"f2f1q","g5c5":"f2f1q","g5d5":"f2f1q","g5e5":"f2f1q","g5h5":"f2f1q"},"e":[]},"8/8/8/5R2/8/7p/1q2kp1P/7K w -":{"g":{"f5f2":0,"f5e5":0},"b":{"f5g5":"f2f1q","f5f3":"b2a1","f5f4":"b2a1","f5a5":"f2f1q","f5b5":"f2f1q","f5c5":"f2f1q","f5d5":"f2f1q","f5h5":"f2f1q","f5f6":"b2a1","f5f7":"b2a1","f5f8":"b2a1"},"e":[]},"8/8/8/8/8/6Rp/1q2kp1P/7K w -":{"g":{"g3e3":0},"b":{"g3g1":"f2g1q","g3g2":"b2a1","g3g4":"f2f1q","g3g5":"f2f1q","g3g6":"f2f1q","g3g7":"f2f1q","g3g8":"f2f1q","g3a3":"f2f1q","g3b3":"f2f1q","g3c3":"f2f1q","g3d3":"f2f1q","g3f3":"b2a1","g3h3":"f2f1q"},"e":[]},"8/8/8/7k/1R6/7p/1q3p1P/7K w -":{"g":{"b4b5":"b2e5","b4h4":"h5g6"},"b":{"b4g4":"f2f1q","b4b2":"f2f1q","b4b3":"f2f1q","b4a4":"f2f1q","b4c4":"f2f1q","b4d4":"f2f1q","b4e4":"f2f1q","b4f4":"b2a1","b4b6":"f2f1q","b4b7":"f2f1q","b4b8":"f2f1q"},"e":[]},"8/8/8/1R2q2k/8/7p/5p1P/7K w -":{"g":{"b5e5":0},"b":{"b5b1":"e5e4","b5b2":"f2f1q","b5b3":"f2f1q","b5b4":"f2f1q","b5a5":"f2f1q","b5c5":"f2f1q","b5d5":"f2f1q","b5b6":"f2f1q","b5b7":"f2f1q","b5b8":"f2f1q"},"e":[]},"8/8/6k1/8/7R/7p/1q3p1P/7K w -":{"g":{"h4g4":0,"h4h6":0},"b":{"h4h3":"f2f1q","h4a4":"f2f1q","h4b4":"f2f1q","h4c4":"f2f1q","h4d4":"f2f1q","h4e4":"f2f1q","h4f4":"b2c1","h4h5":"f2f1q","h4h7":"f2f1q","h4h8":"f2f1q"},"e":[]}}},"mr2":{"fen":"2Q5/5Rpk/6p1/7p/7P/6q1/4r3/7K w - - 0 1","side":"w","G":{"2Q5/5Rpk/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"c8h8":"h7h8","c8g8":"h7g8","f7g7":"h7g7"},"b":{"c8h3":"g3h3","f7f2":"e2e1","f7f1":"e2h2","f7f3":"e2h2","f7f4":"e2h2","f7f5":"e2h2","f7f6":"e2h2","f7a7":"e2h2","f7b7":"e2h2","f7c7":"e2h2","f7d7":"e2h2","f7e7":"e2h2","f7f8":"e2h2","c8c1":"e2h2","c8c2":"g3g2","c8c3":"g3g2","c8c4":"g3g2","c8g4":"e2h2","c8c5":"e2h2","c8f5":"e2h2","c8a6":"e2h2","c8c6":"e2h2","c8e6":"e2h2","c8b7":"e2h2","c8c7":"e2h2","c8d7":"e2h2","c8a8":"e2h2","c8b8":"e2h2","c8d8":"e2h2","c8e8":"e2h2","c8f8":"e2h2"},"e":[]},"7k/5Rp1/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"f7f8":"h8h7"},"b":{"f7f2":"e2e1","f7f1":"e2h2","f7f3":"e2h2","f7f4":"e2h2","f7f5":"e2h2","f7f6":"e2h2","f7a7":"e2h2","f7b7":"e2h2","f7c7":"e2h2","f7d7":"e2h2","f7e7":"e2h2","f7g7":"e2h2"},"e":[]},"5R2/6pk/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"f8h8":"h7h8"},"b":{"f8f2":"e2e1","f8f1":"e2h2","f8f3":"e2h2","f8f4":"e2h2","f8f5":"e2h2","f8f6":"e2h2","f8f7":"e2h2","f8a8":"e2h2","f8b8":"e2h2","f8c8":"e2h2","f8d8":"e2h2","f8e8":"e2h2","f8g8":"e2h2"},"e":[]},"6k1/5Rp1/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"f7f8":"g8h7"},"b":{"f7g7":"g8f8","f7f2":"e2e1","f7f1":"e2h2","f7f3":"e2h2","f7f4":"e2h2","f7f5":"e2h2","f7f6":"e2h2","f7a7":"e2h2","f7b7":"e2h2","f7c7":"e2h2","f7d7":"e2h2","f7e7":"e2h2"},"e":[]},"2Q5/6k1/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"c8f8":"g7h7","c8b7":"g7h6","c8g8":"g7f6","c8d7":"g7h6","c8h8":"g7f7"},"b":{"c8c7":"g3c7","c8c3":"g3c3","c8h3":"g3h3","c8c1":"e2h2","c8c2":"e2e1","c8c4":"e2h2","c8g4":"e2h2","c8c5":"e2h2","c8f5":"e2h2","c8a6":"e2h2","c8c6":"e2h2","c8e6":"e2h2","c8a8":"e2h2","c8b8":"e2h2","c8d8":"e2h2","c8e8":"e2h2"},"e":[]},"5Q2/7k/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"f8f7":"h7h6","f8g7":"h7g7","f8h8":"h7h8","f8g8":"h7g8","f8h6":"h7g8","f8e7":"h7h6"},"b":{"f8f2":"e2e1","f8f1":"e2h2","f8a3":"e2h2","f8f3":"e2h2","f8b4":"e2h2","f8f4":"e2h2","f8c5":"e2h2","f8f5":"e2h2","f8d6":"e2h2","f8f6":"e2h2","f8a8":"e2h2","f8b8":"e2h2","f8c8":"e2h2","f8d8":"e2h2","f8e8":"e2h2"},"e":[]},"8/5Q2/6pk/7p/7P/6q1/4r3/7K w -":{"g":{"f7f8":"h6h7","f7h7":"h6h7","f7g7":"h6g7","f7g6":"g3g6"},"b":{"f7f2":"e2e1","f7f4":"g3f4","f7f1":"e2h2","f7a2":"e2e1","f7b3":"e2e1","f7f3":"e2h2","f7c4":"e2h2","f7d5":"e2h2","f7f5":"e2h2","f7e6":"e2h2","f7f6":"e2h2","f7a7":"e2h2","f7b7":"e2h2","f7c7":"e2h2","f7d7":"e2h2","f7e7":"e2h2","f7e8":"e2h2","f7g8":"e2h2"},"e":[]},"6k1/8/6pQ/7p/7P/6q1/4r3/7K w -":{"g":{"h6g6":"g3g6","h6f8":"g8h7","h6g7":"g8g7","h6h7":"g8f8","h6h8":"g8f7"},"b":{"h6c1":"g3g2","h6d2":"g3g2","h6e3":"g3g2","h6f4":"g3g2","h6g5":"e2e1","h6h5":"e2e1"},"e":[]},"5k2/7Q/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"h7f7":0,"h7e7":0,"h7g7":0,"h7h8":0,"h7g8":0,"h7h6":0},"b":{"h7h5":"g3g2","h7g6":"e2e1","h7a7":"e2h2","h7b7":"e2h2","h7c7":"e2h2","h7d7":"e2h2"},"e":[]},"7Q/5k2/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"h8f6":0,"h8h7":0,"h8e8":0,"h8g7":0,"h8g8":0,"h8f8":0},"b":{"h8a1":"e2h2","h8b2":"e2e1","h8c3":"e2h2","h8d4":"e2h2","h8e5":"e2h2","h8h5":"e2h2","h8h6":"e2h2","h8a8":"e2h2","h8b8":"e2h2","h8c8":"e2h2","h8d8":"e2h2"},"e":[]},"8/4Q3/6pk/7p/7P/6q1/4r3/7K w -":{"g":{"e7h7":"h6h7","e7e3":"e2e3","e7g7":"h6g7","e7f8":"h6h7"},"b":{"e7e2":"g3h4","e7g5":"g3g5","e7a3":"g3g2","e7b4":"g3g2","e7e4":"e2h2","e7c5":"e2h2","e7e5":"e2h2","e7d6":"e2h2","e7e6":"e2h2","e7f6":"e2h2","e7a7":"e2h2","e7b7":"e2h2","e7c7":"e2h2","e7d7":"e2h2","e7f7":"e2h2","e7d8":"e2h2","e7e8":"e2h2"},"e":[]},"8/1Q6/6pk/7p/7P/6q1/4r3/7K w -":{"g":{"b7h7":"h6h7","b7g7":"h6g7"},"b":{"b7b1":"g3g2","b7b2":"g3g2","b7g2":"g3g2","b7b3":"g3g2","b7f3":"e2h2","b7b4":"e2h2","b7e4":"e2h2","b7b5":"e2h2","b7d5":"e2h2","b7a6":"e2h2","b7b6":"e2h2","b7c6":"e2h2","b7a7":"e2h2","b7c7":"e2h2","b7d7":"e2h2","b7e7":"e2h2","b7f7":"e2h2","b7a8":"e2h2","b7b8":"e2h2","b7c8":"e2h2"},"e":[]},"6Q1/8/5kp1/7p/7P/6q1/4r3/7K w -":{"g":{"g8g6":"f6g6","g8e6":"f6g7","g8f7":"f6f7","g8f8":"f6e6","g8d8":"f6f5","g8g7":"f6e6"},"b":{"g8a2":"e2e1","g8b3":"e2e1","g8c4":"e2h2","g8d5":"e2h2","g8h7":"e2h2","g8a8":"e2h2","g8b8":"e2h2","g8c8":"e2h2","g8e8":"e2h2"},"e":["g8h8"]},"8/6k1/4Q1p1/7p/7P/6q1/4r3/7K w -":{"g":{"e6e7":"g7h6","e6d7":"g7h6","e6f7":"g7h6","e6g6":"g3g6","e6f6":"g7g8","e6g8":"g7f6"},"b":{"e6e2":"g3h4","e6e5":"g3e5","e6h3":"g3h3","e6a2":"g3g2","e6b3":"g3g2","e6e3":"g3g2","e6c4":"g3g2","e6e4":"e2h2","e6g4":"e2h2","e6d5":"e2h2","e6f5":"e2h2","e6a6":"e2h2","e6b6":"e2h2","e6c6":"e2h2","e6d6":"e2h2","e6c8":"e2h2","e6e8":"e2h2"},"e":[]},"8/3Q4/6pk/7p/7P/6q1/4r3/7K w -":{"g":{"d7h7":0,"d7g7":0},"b":{"d7d2":"e2e3","d7h3":"g3h3","d7d1":"g3g2","d7d3":"g3g2","d7a4":"g3g2","d7d4":"g3g2","d7g4":"e2h2","d7b5":"e2h2","d7d5":"e2h2","d7f5":"e2h2","d7c6":"e2h2","d7d6":"e2h2","d7e6":"e2h2","d7a7":"e2h2","d7b7":"e2h2","d7c7":"e2h2","d7e7":"e2h2","d7f7":"e2h2","d7c8":"e2h2","d7d8":"e2h2","d7e8":"e2h2"},"e":[]},"6k1/8/5Qp1/7p/7P/6q1/4r3/7K w -":{"g":{"f6f7":0,"f6g6":0,"f6h8":0,"f6g7":0,"f6f8":0,"f6d8":0},"b":{"f6f2":"e2e1","f6a1":"e2h2","f6f1":"e2h2","f6b2":"e2e1","f6c3":"e2h2","f6f3":"e2h2","f6d4":"e2h2","f6f4":"e2h2","f6e5":"e2h2","f6f5":"e2h2","f6g5":"e2e1","f6a6":"e2h2","f6b6":"e2h2","f6c6":"e2h2","f6d6":"e2h2","f6e7":"e2h2"},"e":["f6e6"]},"5Q2/8/4k1p1/7p/7P/6q1/4r3/7K w -":{"g":{"f8f7":"e6d6","f8g8":"e6d7","f8f6":"e6d5","f8e8":"e6d5","f8e7":"e6d5","f8c8":"e6d5"},"b":{"f8f2":"e2e1","f8d6":"g3d6","f8f1":"e2h2","f8a3":"e2h2","f8f3":"e2h2","f8b4":"e2h2","f8f4":"e2h2","f8c5":"e2h2","f8h6":"e2h2","f8g7":"e2h2","f8a8":"e2h2","f8b8":"e2h2","f8d8":"e2h2","f8h8":"e2h2"},"e":["f8f5"]},"8/5Q2/3k2p1/7p/7P/6q1/4r3/7K w -":{"g":{"f7g6":0,"f7c7":0,"f7e6":0,"f7d5":0,"f7d7":0,"f7e7":0},"b":{"f7f2":"e2e1","f7f4":"g3f4","f7f1":"e2h2","f7a2":"e2e1","f7b3":"e2e1","f7f3":"e2h2","f7c4":"e2h2","f7f5":"e2h2","f7a7":"e2h2","f7b7":"e2h2","f7g7":"e2h2","f7h7":"e2h2","f7e8":"e2h2","f7g8":"e2h2"},"e":["f7f8","f7f6"]},"6Q1/3k4/6p1/7p/7P/6q1/4r3/7K w -":{"g":{"g8e8":0,"g8c8":0,"g8e6":0,"g8f7":0,"g8d8":0,"g8g7":0},"b":{"g8d5":"g3d6","g8a2":"g3e1","g8b3":"g3e1","g8c4":"g3e1","g8g6":"e2e1","g8a8":"e2e1","g8b8":"e2e1","g8f8":"e2h2","g8h8":"e2h2"},"e":["g8h7"]},"8/8/5Qp1/3k3p/7P/6q1/4r3/7K w -":{"g":{"f6c6":0,"f6d4":0,"f6e6":0,"f6f7":0},"b":{"f6f5":"g3e5","f6d8":"g3d6","f6g5":"g3g5","f6f2":"e2e1","f6d6":"g3d6","f6e5":"g3e5","f6f3":"g3f3","f6a1":"e2h2","f6f1":"e2h2","f6b2":"e2e1","f6c3":"e2h2","f6f4":"e2h2","f6a6":"e2h2","f6b6":"e2h2","f6g6":"e2e1","f6e7":"e2h2","f6g7":"e2h2","f6f8":"e2h2","f6h8":"e2h2"},"e":[]},"4Q3/8/6p1/3k3p/7P/6q1/4r3/7K w -":{"g":{"e8c6":0,"e8e4":0,"e8b5":0,"e8e6":0,"e8a8":0,"e8f7":0},"b":{"e8e2":"g3h4","e8d8":"g3d6","e8e5":"g3e5","e8e3":"g3h2","e8a4":"g3h2","e8g6":"e2e1","e8e7":"e2h2","e8b8":"e2h2","e8c8":"e2h2","e8f8":"e2h2","e8h8":"e2h2"},"e":["e8g8","e8d7"]},"8/4Q3/6p1/3k3p/7P/6q1/4r3/7K w -":{"g":{"e7c5":0,"e7e4":0,"e7b7":0,"e7e6":0,"e7f7":0,"e7d7":0},"b":{"e7e2":"g3h4","e7d8":"g3d6","e7g5":"g3g5","e7d6":"g3d6","e7e5":"g3e5","e7a3":"g3e1","e7e3":"e2h2","e7b4":"e2h2","e7f6":"e2h2","e7a7":"e2h2","e7c7":"e2h2","e7g7":"e2h2","e7h7":"e2h2","e7e8":"e2h2","e7f8":"e2h2"},"e":[]},"2Q5/8/6p1/3k3p/7P/6q1/4r3/7K w -":{"g":{"c8c5":0,"c8c4":0,"c8c6":0,"c8a8":0,"c8e6":0,"c8b7":0},"b":{"c8d8":"g3d6","c8f5":"g3e5","c8h3":"g3h3","c8c1":"e2h2","c8c2":"e2e1","c8c3":"e2h2","c8g4":"e2h2","c8a6":"e2h2","c8c7":"e2h2","c8b8":"e2h2","c8e8":"e2h2","c8f8":"e2h2","c8h8":"e2h2"},"e":["c8g8","c8d7"]},"3Q4/8/6p1/5k1p/7P/6q1/4r3/7K w -":{"g":{"d8c8":"f5e4","d8d7":"f5e4","d8f8":"f5e4","d8f6":"f5e4"},"b":{"d8d5":"g3e5","d8a5":"g3e5","d8g5":"g3g5","d8d3":"g3d3","d8d1":"g3g2","d8d2":"g3g2","d8d4":"g3g2","d8b6":"g3g2","d8d6":"g3g2","d8c7":"g3g2","d8e7":"g3g2","d8a8":"e2h2","d8b8":"e2h2","d8e8":"e2h2","d8g8":"e2h2","d8h8":"e2h2"},"e":[]},"2Q5/8/6p1/7p/4k2P/6q1/4r3/7K w -":{"g":{"c8c6":0,"c8c4":0,"c8a8":0,"c8b7":0,"c8f5":0},"b":{"c8e8":"g3e5","c8e6":"g3e5","c8c2":"g3d3","c8g4":"h5g4","c8h3":"g3h3","c8c1":"g3g2","c8c3":"g3g2","c8c5":"g3g2","c8a6":"g3g2","c8c7":"g3g2","c8d7":"g3g2","c8b8":"g3g2","c8d8":"g3g2","c8f8":"g3g2","c8g8":"g3g2","c8h8":"g3g2"},"e":[]},"8/3Q4/6p1/7p/4k2P/6q1/4r3/7K w -":{"g":{"d7a4":0,"d7c6":0,"d7d5":0,"d7f5":0,"d7b7":0,"d7d4":0},"b":{"d7e6":"g3e5","d7e8":"g3e5","d7e7":"g3e5","d7d3":"g3d3","d7g4":"h5g4","d7h3":"g3h3","d7d1":"g3g2","d7d2":"g3g2","d7b5":"g3g2","d7d6":"g3g2","d7a7":"g3g2","d7c7":"g3g2","d7f7":"g3g2","d7g7":"g3g2","d7h7":"g3g2","d7c8":"g3g2","d7d8":"g3g2"},"e":[]},"5Q2/8/6p1/7p/4k2P/6q1/4r3/7K w -":{"g":{"f8b4":0,"f8a8":0,"f8f5":0},"b":{"f8e8":"g3e5","f8e7":"g3e5","f8f2":"e2e1","f8f4":"g3f4","f8f3":"g3f3","f8f1":"e2h2","f8a3":"e2h2","f8c5":"e2h2","f8d6":"e2h2","f8f6":"e2h2","f8h6":"e2h2","f8f7":"e2h2","f8g7":"e2h2","f8b8":"e2h2","f8c8":"e2h2","f8d8":"e2h2","f8g8":"e2h2","f8h8":"e2h2"},"e":[]},"8/8/5Qp1/7p/4k2P/6q1/4r3/7K w -":{"g":{"f6f5":0,"f6c6":0,"f6d4":0,"f6g6":0},"b":{"f6e6":"g3e5","f6e7":"g3e5","f6f2":"e2e1","f6f3":"g3f3","f6f4":"g3f4","f6e5":"g3e5","f6a1":"e2h2","f6f1":"e2h2","f6b2":"e2e1","f6c3":"e2h2","f6g5":"e2e1","f6a6":"e2h2","f6b6":"e2h2","f6d6":"e2h2","f6f7":"e2h2","f6g7":"e2h2","f6d8":"e2h2","f6f8":"e2h2","f6h8":"e2h2"},"e":[]},"8/6Q1/4k1p1/7p/7P/6q1/4r3/7K w -":{"g":{"g7g6":"g3g6","g7e7":"e6d5","g7d7":"e6f6","g7f7":"e6d6","g7g8":"e6d7","g7f6":"e6d5"},"b":{"g7e5":"g3e5","g7a1":"e2h2","g7b2":"e2e1","g7c3":"e2h2","g7d4":"e2h2","g7h6":"e2h2","g7a7":"e2h2","g7b7":"e2h2","g7c7":"e2h2","g7h7":"e2h2","g7f8":"e2h2","g7h8":"e2h2"},"e":[]},"8/3Q4/5kp1/7p/7P/6q1/4r3/7K w -":{"g":{"d7f5":0,"d7e7":0,"d7f7":0,"d7e6":0,"d7g7":0,"d7c6":0},"b":{"d7d4":"g3e5","d7d6":"g3d6","d7h3":"g3h3","d7d1":"g3g2","d7d2":"g3g2","d7d3":"g3g2","d7a4":"g3g2","d7g4":"e2h2","d7b5":"e2h2","d7d5":"e2h2","d7a7":"e2h2","d7b7":"e2h2","d7c7":"e2h2","d7h7":"e2h2","d7c8":"e2h2","d7e8":"e2h2"},"e":["d7d8"]}}},"pp":{"fen":"6k1/1p4p1/p1Q5/8/8/8/rq3PPP/6K1 w - - 0 1","side":"w","G":{"6k1/1p4p1/p1Q5/8/8/8/rq3PPP/6K1 w -":{"g":{"c6e8":"g8h7"},"b":{"c6d5":"g8f8","c6c8":"g8f7","c6c4":"g8f8","c6e6":"g8f8","h2h4":"b2f2","h2h3":"b2f2","g2g3":"b2f2","f2f4":"a2a1","g2g4":"b2f2","c6c2":"a2a1","c6c3":"b2f2","c6f3":"a2a1","c6a4":"a2a1","c6e4":"a2a1","c6b5":"b2f2","c6c5":"a2a1","c6d6":"a2a1","c6h6":"a2a1","c6c7":"a2a1","c6d7":"a2a1","g1h1":"a2a1","c6a6":"b2f2","f2f3":"b2g2","c6c1":"b2c1","c6b6":"a2a1","c6f6":"a2a1","c6g6":"b2c1","c6b7":"b2c1","g1f1":"b2f2"},"e":[]},"4Q3/1p4pk/p7/8/8/8/rq3PPP/6K1 w -":{"g":{"e8h5":"h7g8"},"b":{"e8e4":"h7h6","e8e1":"a2a1","e8e2":"b2e2","e8g8":"h7g8","e8h8":"h7h8","e8g6":"h7g6","e8e5":"b2f2","g2g4":"b2f2","h2h4":"b2f2","e8e3":"a2a1","e8a4":"a2a1","e8b5":"b2f2","g2g3":"b2f2","h2h3":"b2f2","e8c6":"b2f2","e8e6":"b2f2","e8d7":"b2f2","e8e7":"b2f2","e8c8":"b2f2","e8d8":"b2f2","g1h1":"a2a1","f2f3":"b2g2","f2f4":"b2g2","e8f7":"a2a1","e8a8":"a2a1","e8b8":"a2a1","e8f8":"a2a1","g1f1":"b2f2"},"e":[]},"6k1/1p4p1/p7/7Q/8/8/rq3PPP/6K1 w -":{"g":{"h5e8":"g8h7"},"b":{"h5d5":"g8f8","h5h7":"g8h7","h5e2":"b2e2","h5f7":"g8f7","h5h8":"g8h8","g2g3":"b2f2","h2h3":"b2f2","g2g4":"b2f2","h2h4":"b2f2","h5d1":"b2f2","h5f3":"a2a1","h5g4":"a2a1","h5a5":"a2a1","h5b5":"b2f2","h5c5":"a2a1","h5e5":"a2a1","h5g5":"a2a1","h5h6":"a2a1","g1h1":"a2a1","f2f3":"b2g2","f2f4":"b2g2","h5h3":"a2a1","h5h4":"a2a1","h5f5":"b2c1","h5g6":"b2c1","g1f1":"b2f2"},"e":[]}}},"db":{"fen":"1r6/5kp1/RqQb1p1p/1p1PpP2/1Pp1B3/2P4P/6P1/5K2 b - - 14 45","side":"b","G":{"1r6/5kp1/RqQb1p1p/1p1PpP2/1Pp1B3/2P4P/6P1/5K2 b -":{"g":{"b6e3":"c6d6"},"b":{"b6c6":"d5c6","b6c7":"c6d6","b6d8":"c6d6","b6a6":"c6a6","b6b7":"c6d6","f7e7":"a6b6","h6h5":"a6b6","f7g8":"a6b6","f7f8":"a6b6","b8b7":"a6b6","d6c5":"a6b6","b6g1":"f1g1","b6d4":"c3d4","b8a8":"a6b6","b8e8":"a6b6","d6c7":"a6b6","b8d8":"c6b6","d6b4":"a6b6","b6f2":"f1f2","b6a5":"a6a5","b8c8":"c6b6","d6e7":"a6b6","d6f8":"a6b6","b8h8":"c6b6","g7g5":"f5g6","g7g6":"f5g6","b8g8":"c6b6","b8f8":"c6b6","b6c5":"b4c5","b6a7":"a6a7"},"e":[]},"1r6/5kp1/R2Q1p1p/1p1PpP2/1Pp1B3/2P1q2P/6P1/5K2 b -":{"g":{"b8e8":"h3h4"},"b":{"e3e4":"a6a7","e3f4":"e4f3","e3c1":"f1e2","h6h5":"d6b8","e3d2":"d6b8","f7g8":"d6b8","b8d8":"d6d8","e3g3":"d6b8","e3g5":"d6b8","e3c3":"d6c7","f7e8":"d6b8","e3b6":"a6b6","e3d4":"c3d4","e3f2":"f1f2","e3g1":"f1g1","e3c5":"b4c5","e3e2":"f1e2","e3d3":"e4d3","e3e1":"f1e1","e3f3":"e4f3","b8b6":"d6d7","e3h3":"a6a7","e3a7":"d6e6","b8c8":"d6e6","g7g5":"f5g6","g7g6":"f5g6","b8b7":"d6e6","b8g8":"d6e6","b8a8":"d6e6","b8h8":"d6e6","b8f8":"d6e6"},"e":[]},"4r3/5kp1/R2Q1p1p/1p1PpP2/1Pp1B2P/2P1q3/6P1/5K2 b -":{"g":{"h6h5":"e4f3"},"b":{"e3c1":"f1e2","e3f4":"e4f3","e8e7":"e4f3","f7g8":"d6d7","e3g3":"d6d7","e3d2":"a6a7","e3c3":"a6a7","e8b8":"d6c7","e8d8":"d6d8","e3c5":"d6c5","e3b6":"d6b6","e3h3":"g2h3","e3d3":"e4d3","e3f2":"f1f2","e3d4":"c3d4","e3g1":"f1g1","e3e1":"f1e1","e3e2":"f1e2","e3f3":"e4f3","e3g5":"h4g5","g7g5":"d6f6","e3a7":"a6a7","g7g6":"d6d7","e8c8":"d6e6","e8h8":"d6e6","e8g8":"d6e6","e8e6":"d6e6","e8a8":"d6e6","e8f8":"d6e6"},"e":["e3e4"]},"4r3/5kp1/R2Q1p2/1p1PpP1p/1Pp4P/2P1qB2/6P1/5K2 b -":{"g":{"e3c1":"f1f2"},"b":{"e3d3":"f3e2","f7g8":"d6d7","e3f4":"a6a7","e3d2":"d6d7","e5e4":"f3h5","e3c3":"f3h5","e3h6":"a6a7","e3b6":"d6d7","e3f2":"f1f2","e3e1":"f1e1","g7g6":"d6f6","e3d4":"d6d7","e3e2":"f3e2","e3c5":"b4c5","e3g1":"f1g1","e3e4":"f3e4","e3f3":"g2f3","e3g5":"h4g5","g7g5":"d6f6","e8d8":"f3h5","e8b8":"f3h5","e8e7":"f3h5","e3a7":"a6a7","e8c8":"d6e6","e8h8":"d6e6","e8e6":"d6e6","e8g8":"d6e6","e8a8":"d6e6","e8f8":"d6e6"},"e":[]},"4r3/5kp1/R2Q1p2/1p1PpP1p/1Pp4P/2P2B2/5KP1/2q5 b -":{"g":{"c1d2":"f2f1"},"b":{"f7g8":"d6d7","c1f4":"a6a7","c1h6":"a6a7","c1c2":"f2g3","c1b2":"f3e2","e5e4":"f3h5","c1c3":"f3h5","c1b1":"d6d7","c1a3":"d6d7","c1a1":"a6a1","c1d1":"f3d1","g7g6":"d6f6","c1e1":"f2e1","c1e3":"f2e3","c1h1":"d6d7","c1f1":"f2f1","c1g5":"h4g5","g7g5":"d6f6","e8e7":"f3h5","c1g1":"f2g1","e8b8":"f3h5","e8d8":"f3h5","e8c8":"d6e6","e8e6":"d6e6","e8g8":"d6e6","e8a8":"d6e6","e8h8":"d6e6","e8f8":"d6e6"},"e":[]},"4r3/5kp1/R2Q1p2/1p1PpP1p/1Pp4P/2P2B2/3q2P1/5K2 b -":{"g":{"d2c1":0},"b":{"d2d3":"f3e2","f7g8":"d6d7","d2f4":"a6a7","d2h6":"a6a7","e5e4":"f3h5","d2c2":"f3h5","d2c3":"f3h5","d2e3":"f3h5","d2b2":"f3h5","d2e1":"f1e1","g7g6":"d6f6","d2f2":"f1f2","d2d4":"d6d7","d2d1":"f3d1","d2g2":"f3g2","d2a2":"a6a2","g7g5":"d6f6","d2e2":"f3e2","e8e7":"f3h5","d2g5":"h4g5","e8c8":"d6e6","e8b8":"f3h5","e8d8":"f3h5","d2d5":"f3d5","e8h8":"d6e6","e8g8":"d6e6","e8e6":"d6e6","e8a8":"d6e6","e8f8":"d6e6"},"e":[]}}},"wb":{"fen":"8/8/3k4/P7/8/1K6/5B2/8 b - - 0 1","side":"b","G":{"8/8/3k4/P7/8/1K6/5B2/8 b -":{"g":{"d6c7":"a5a6"},"b":{"d6d5":"a5a6","d6d7":"a5a6","d6c6":"a5a6","d6e5":"a5a6","d6e6":"a5a6","d6e7":"a5a6"},"e":[]},"8/2k5/P7/8/8/1K6/5B2/8 b -":{"g":{"c7b8":"f2g1"},"b":{"c7c6":"b3a4","c7c8":"f2g3","c7d7":"a6a7","c7d6":"a6a7","c7d8":"a6a7"},"e":[]},"1k6/8/P7/8/8/1K6/8/6B1 b -":{"g":{"b8a8":0},"b":{"b8c7":"g1a7","b8c8":"g1h2"},"e":[]}}},"sv":{"fen":"8/8/1KP5/3r4/8/8/8/k7 w - - 0 1","side":"w","G":{"8/8/1KP5/3r4/8/8/8/k7 w -":{"g":{"c6c7":"d5d6"},"b":{"b6b7":"d5b5","b6a6":"a1b2","b6a7":"a1b2","b6c7":"d5d1"},"e":[]},"8/2P5/1K1r4/8/8/8/8/k7 w -":{"g":{"b6b5":"d6d5"},"b":{"b6b7":"d6d7","b6a7":"d6c6","b6c5":"d6d1","b6a5":"d6c6"},"e":[]},"8/2P5/8/1K1r4/8/8/8/k7 w -":{"g":{"b5b4":"d5d4"},"b":{"b5c6":"d5d1","b5a6":"d5c5","b5c4":"d5d1","b5a4":"d5c5"},"e":["b5b6"]},"8/2P5/8/8/1K1r4/8/8/k7 w -":{"g":{"b4b3":"d4d3"},"b":{"b4a5":"d4c4","b4c5":"d4d1","b4a3":"d4c4"},"e":["b4c3","b4b5"]},"8/2P5/8/8/8/1K1r4/8/k7 w -":{"g":{"b3c2":"d3d4"},"b":{"b3b4":"a1b2","b3c4":"d3d1","b3a4":"d3c3"},"e":[]},"8/2P5/8/8/3r4/8/2K5/k7 w -":{"g":{"c7c8r":"d4a4"},"b":{"c7c8q":"d4c4","c7c8b":"d4c4","c2c1":"d4c4","c7c8n":"d4c4"},"e":["c2c3","c2b3"]},"2R5/8/8/8/r7/8/2K5/k7 w -":{"g":{"c2b3":0},"b":{"c8c7":"a1a2","c8c6":"a1a2","c8c3":"a4a2","c8c5":"a4a2","c8h8":"a1a2","c8f8":"a1a2","c8e8":"a1a2","c8g8":"a1a2","c8b8":"a4a7","c8d8":"a4a7","c2d2":"a4g4","c2c3":"a4a7","c2c1":"a1a2","c2d3":"a4a7","c2d1":"a1b2","c8a8":"a4a8","c8c4":"a4c4"},"e":[]}}},"g1":{"fen":"7k/8/7K/8/8/1Q6/8/8 w - - 0 1","side":"w","G":{"7k/8/7K/8/8/1Q6/8/8 w -":{"g":{"b3b8":0},"b":{"b3c3":"h8g8","b3b2":"h8g8","b3e3":"h8g8","b3b5":"h8g8","b3b7":"h8g8","b3a4":"h8g8","b3d1":"h8g8","b3d3":"h8g8","b3b6":"h8g8","b3b4":"h8g8","b3f3":"h8g8","b3a3":"h8g8","b3c2":"h8g8","b3b1":"h8g8","b3h3":"h8g8","h6g5":"h8g7","h6h5":"h8g7","h6g6":0,"b3a2":0,"b3c4":0,"b3d5":0,"b3g3":0,"b3e6":0,"b3f7":0,"b3g8":"h8g8"},"e":[]}}},"g2":{"fen":"8/8/3k4/P7/8/1K6/5B2/8 w - - 0 1","side":"w","G":{"8/8/3k4/P7/8/1K6/5B2/8 w -":{"g":{"a5a6":"d6c7"},"b":{"b3b4":"d6c7","f2e3":"d6c7","f2d4":"d6c7","f2g1":"d6c7","b3a4":"d6c7","b3c3":"d6c7","f2a7":"d6c6","b3c4":"d6c7","b3b2":"d6c7","b3a3":"d6c7","b3a2":"d6c7","f2h4":"d6c6","f2e1":"d6c6","f2b6":"d6c6","b3c2":"d6c7","f2g3":"d6c6","f2c5":"d6c5"},"e":[]},"8/2k5/P7/8/8/1K6/5B2/8 w -":{"g":{"f2a7":0},"b":{"b3c4":"c7b8","b3b2":"c7b8","f2g1":"c7b8","b3a3":"c7b8","f2c5":"c7b8","f2d4":"c7b8","b3c3":"c7b8","b3c2":"c7b8","b3b4":"c7b8","b3a2":"c7b8","f2e3":"c7b8","b3a4":"c7b8","a6a7":"c7b7","f2g3":"c7b6","f2h4":"c7b6","f2e1":"c7b6","f2b6":"c7b6"},"e":[]}}},"g3":{"fen":"8/8/8/8/5K2/1Q6/p7/1k6 b - - 0 1","side":"b","G":{"8/8/8/8/5K2/1Q6/p7/1k6 b -":{"g":{"b1a1":"b3e3"},"b":{"b1c1":"b3a2"},"e":[]},"8/8/8/8/5K2/4Q3/p7/k7 b -":{"g":{"a1b1":"e3e4","a1b2":"e3d2"},"b":{},"e":[]},"8/8/8/8/4QK2/8/p7/1k6 b -":{"g":{"b1b2":0,"b1c1":0},"b":{"b1a1":"f4e3"},"e":[]},"8/8/8/8/5K2/8/pk1Q4/8 b -":{"g":{"b2b1":0},"b":{"b2b3":"d2d4","b2a3":"d2c3","b2a1":"d2c1"},"e":[]}}}},"cards":[{"fen":"k7/8/1QK5/8/8/8/8/8 b - - 0 1","ans":"stalemate","why":"Ферзь b6 стережёт a7, b7 и b8, а шаха нет. <b>Пат!<\/b>"},{"fen":"k7/1Q6/2K5/8/8/8/8/8 b - - 0 1","ans":"mate","why":"Ферзь b7 под защитой короля: шах, и бежать некуда. <b>Мат.<\/b>"},{"fen":"R5k1/5ppp/8/8/8/8/8/6K1 b - - 0 1","ans":"mate","why":"Свои пешки заперли короля. <b>Мат<\/b> по последней горизонтали."},{"fen":"7k/5Q2/6K1/8/8/8/8/8 b - - 0 1","ans":"stalemate","why":"Ферзь закрыл g7 и g8, король g6 — h7. Шаха нет: <b>пат<\/b>."},{"fen":"7k/4N1np/7P/8/8/8/1Q6/K7 b - - 0 1","ans":"stalemate","why":"Конь g7 связан ферзём, пешка h7 упёрлась, поле g8 бьёт конь e7. <b>Пат!<\/b>"},{"fen":"7k/4N1bp/7P/8/8/8/1Q6/K7 b - - 0 1","ans":"none","esc":"Bxb2","escRu":"С:b2","why":"Слон тоже связан, но ходит <b>вдоль<\/b> связки — и даже бьёт ферзя: С:b2! Это не пат."},{"fen":"6rk/5Npp/8/8/8/8/8/6K1 b - - 0 1","ans":"mate","why":"Свои фигуры окружили короля. <b>Спёртый мат!<\/b>"},{"fen":"8/8/8/8/8/5K2/6R1/7k b - - 0 1","ans":"stalemate","why":"Ладья g2 под защитой короля f3, а шаха нет. <b>Пат.<\/b>"},{"fen":"7k/5K2/6P1/8/pP6/P7/8/8 b - b3 0 1","ans":"none","esc":"axb3","escRu":"a:b3 на проходе","q":"Белые только что сыграли b2–b4. Что на доске?","why":"Есть ход a4:b3 — <b>взятие на проходе<\/b>! Белые только что пошли пешкой через поле b3."},{"fen":"rn2k1nr/pp4pp/3p4/q1pP4/P1P2p1b/1b2pPRP/1P1NP1PQ/2B1KBNR w Kkq - 0 13","ans":"stalemate","q":"Позиция после 12 ходов. Что у белых?","why":"Все 32 фигуры на доске — и у белых нет ни одного хода. <b>Пат<\/b> Сэма Лойда!"}],"wb":[{"fen":"8/1k6/8/P7/2K5/3B4/8/8 w - - 0 1","ans":"win","bsq":"d3","corner":"a8","sf":"#10","q":"Слон светлопольный, пешка «a».","why":"Угол a8 светлый — и слон светлый. Он выгонит короля из угла. <b>Выигрыш.<\/b>"},{"fen":"8/1k6/8/P7/2K5/4B3/8/8 w - - 0 1","ans":"draw","bsq":"e3","corner":"a8","sf":"+0.13","q":"Слон тёмнопольный, пешка «a».","why":"Угол a8 светлый, а слон тёмный: прогнать короля из угла нельзя. <b>Ничья!<\/b>"},{"fen":"8/6k1/8/7P/5K2/8/4B3/8 w - - 0 1","ans":"draw","bsq":"e2","corner":"h8","sf":"+0.13","q":"Слон светлопольный, пешка «h».","why":"Угол h8 тёмный, слон светлый. <b>Ничья.<\/b>"},{"fen":"8/6k1/8/7P/5K2/4B3/8/8 w - - 0 1","ans":"win","bsq":"e3","corner":"h8","sf":"#10","q":"Слон тёмнопольный, пешка «h».","why":"Угол h8 тёмный — слон того же цвета. <b>Выигрыш.<\/b>"},{"fen":"8/1k6/8/P7/P1K5/4B3/8/8 w - - 0 1","ans":"draw","bsq":"e3","corner":"a8","sf":"+0.13","q":"Две пешки «a» и тёмнопольный слон.","why":"Даже две пешки не помогают: угол a8 светлый. <b>Ничья!<\/b>"},{"fen":"8/2k5/8/1P6/2K5/4B3/8/8 w - - 0 1","ans":"win","bsq":"e3","corner":"b8","sf":"#13","q":"Пешка «b» и тёмнопольный слон.","why":"Фокус работает только с <b>ладейной<\/b> пешкой. Пешка «b» выигрывает с любым слоном."}],"loyd":{"ten":{"moves":["e3","a5","Qh5","Ra6","Qxa5","h5","Qxc7","Rah6","h4","f6","Qxd7+","Kf7","Qxb7","Qd3","Qxb8","Qh7","Qxc8","Kg6","Qe6"],"note":"Сэм Лойд (1841–1911), «король головоломок»: самый короткий известный пат — 10 ходов.","fen":"5bnr/4p1pq/4Qpkr/7p/7P/4P3/PPPP1PP1/RNB1KBNR b KQ - 2 10"},"all":{"moves":["d4","d6","Qd2","e5","a4","e4","Qf4","f5","h3","Be7","Qh2","Be6","Ra3","c5","Rg3","Qa5+","Nd2","Bh4","f3","Bb3","d5","e3","c4","f4"],"note":"Тоже Лойд: все 32 фигуры на доске, а белым некуда ходить. Пат за 12 ходов!","fen":"rn2k1nr/pp4pp/3p4/q1pP4/P1P2p1b/1b2pPRP/1P1NP1PQ/2B1KBNR w Kkq - 0 13"}}};
+
+</script>
+<script>
+(() => {
+'use strict';
+const { Position, sqName, sqIndex, sanToRu } = window.ChessCore;
+const D = window.SHLYAPA;
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const NS = 'nichya-iz-shlyapy:';
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(NS + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(NS + k, JSON.stringify(v)); } catch (e) { /* storage unavailable: state lives in memory */ } }
+};
+const reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const ru = san => sanToRu(san);
+const SVGNS = 'http://www.w3.org/2000/svg';
+const TEAM_COLORS = ['var(--t0)', 'var(--t1)', 'var(--t2)', 'var(--t3)'];
+const PIECE_RU = { K: 'Кр', Q: 'Ф', R: 'Л', B: 'С', N: 'К', P: '' };
+const plural = (n, a, b, c) => { const m = n % 10, h = n % 100; return m === 1 && h !== 11 ? a : (m >= 2 && m <= 4 && (h < 12 || h > 14) ? b : c); };
+const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+function seeded(seed) { let x = seed || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; }
+function shuffle(arr, rnd) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+const uciOf = m => sqName(m.from) + sqName(m.to) + (m.promotion || '');
+
+/* ---------- pieces sprite ---------- */
+(function buildSprite() {
+  const P = window.PIECE_PATHS;
+  let s = '<svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;width:0;height:0;overflow:hidden" aria-hidden="true">';
+  Object.keys(P).forEach(k => {
+    const light = k[0] === 'w' ? '#fffaf2' : '#f3e2c8';
+    s += `<symbol id="pc-${k}" viewBox="0 0 45 45"><path d="${P[k].s}" fill="${light}"/><path d="${P[k].f}" fill="#22101e"/></symbol>`;
+  });
+  document.body.insertAdjacentHTML('afterbegin', s + '</svg>');
+})();
+function pieceSvg(letter, cls) {
+  const id = (letter === letter.toUpperCase() ? 'w' : 'b') + letter.toUpperCase();
+  return `<svg class="${cls || ''}" viewBox="0 0 45 45" aria-hidden="true"><use href="#pc-${id}"></use></svg>`;
+}
+
+/* ---------- sound ---------- */
+const prefs = { sound: store.get('sound', true) };
+const Sound = (() => {
+  let ctx = null;
+  const ac = () => {
+    if (!ctx) { const C = window.AudioContext || window.webkitAudioContext; if (!C) return null; ctx = new C(); }
+    if (ctx.state === 'suspended') ctx.resume();
+    return ctx;
+  };
+  function tone(freq, dur, o = {}) {
+    if (!prefs.sound) return;
+    const a = ac(); if (!a) return;
+    const t = a.currentTime + (o.when || 0);
+    const osc = a.createOscillator(), g = a.createGain();
+    osc.type = o.type || 'sine';
+    osc.frequency.setValueAtTime(freq, t);
+    if (o.slide) osc.frequency.exponentialRampToValueAtTime(freq * o.slide, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(o.gain || 0.06, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g); g.connect(a.destination);
+    osc.start(t); osc.stop(t + dur + 0.03);
+  }
+  return {
+    move() { tone(430, 0.07, { type: 'triangle', gain: 0.08, slide: 0.7 }); },
+    capture() { tone(250, 0.12, { type: 'triangle', gain: 0.1, slide: 0.55 }); tone(620, 0.04, { type: 'square', gain: 0.015 }); },
+    ok() { [523, 659, 784].forEach((f, i) => tone(f, 0.2, { gain: 0.07, when: i * 0.08 })); },
+    fanfare() { [392, 523, 659, 784].forEach((f, i) => tone(f, 0.22, { type: 'triangle', gain: 0.08, when: i * 0.1 })); tone(1046, 0.6, { type: 'triangle', gain: 0.08, when: 0.42 }); tone(784, 0.6, { gain: 0.05, when: 0.42 }); },
+    bad() { tone(165, 0.22, { type: 'square', gain: 0.03, slide: 0.75 }); },
+    reveal() { tone(880, 0.09, { type: 'triangle', gain: 0.05, slide: 1.3 }); },
+    meow() { tone(620, 0.5, { type: 'triangle', gain: 0.07, slide: 1.6 }); tone(990, 0.35, { type: 'triangle', gain: 0.05, slide: 0.6, when: 0.28 }); },
+    gavel() { [0, 0.18, 0.36].forEach(w => tone(140, 0.12, { type: 'square', gain: 0.05, slide: 0.5, when: w })); },
+    buzz() { tone(110, 0.7, { type: 'sawtooth', gain: 0.04 }); },
+    tick() { tone(1250, 0.03, { type: 'square', gain: 0.012 }); },
+    magic() { [1046, 1318, 1568, 2093, 1568, 2637].forEach((f, i) => tone(f, 0.16, { type: 'sine', gain: 0.035, when: i * 0.05 })); },
+    poof() { tone(300, 0.25, { type: 'sawtooth', gain: 0.02, slide: 0.35 }); tone(900, 0.12, { type: 'triangle', gain: 0.02, slide: 0.5, when: 0.03 }); },
+    freeze() { [1760, 1480, 1245, 1047].forEach((f, i) => tone(f, 0.3, { type: 'sine', gain: 0.04, when: i * 0.09 })); },
+    drum() { [0, 0.07, 0.14, 0.21, 0.28, 0.35].forEach(w => tone(90, 0.06, { type: 'triangle', gain: 0.08, when: w })); tone(784, 0.4, { type: 'triangle', gain: 0.05, when: 0.45 }); tone(1046, 0.5, { type: 'triangle', gain: 0.05, when: 0.45 }); },
+    toss() { tone(520, 0.12, { type: 'triangle', gain: 0.05, slide: 1.6 }); }
+  };
+})();
+
+/* ---------- sparkles (gold stars) ---------- */
+const Sparkle = (() => {
+  const cv = $('#sparkle'); let ctx = null, parts = [], raf = 0;
+  function star(c, r) { c.beginPath(); for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = i % 2 ? r * 0.38 : r; c.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); } c.closePath(); c.fill(); }
+  function tick() {
+    const W = cv.width, H = cv.height, k = window.devicePixelRatio || 1;
+    ctx.clearRect(0, 0, W, H);
+    parts.forEach(p => {
+      p.vy += 0.18 * k; p.vx *= 0.985; p.vy *= 0.985; p.x += p.vx; p.y += p.vy; p.r += p.vr; p.life++;
+      const tw = 0.6 + 0.4 * Math.sin(p.life * 0.35 + p.ph);
+      ctx.save(); ctx.globalAlpha = Math.max(0, 1 - p.life / p.max) * tw; ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; star(ctx, p.s); ctx.restore();
+    });
+    parts = parts.filter(p => p.life < p.max && p.y < H + 40);
+    if (parts.length) raf = requestAnimationFrame(tick); else { raf = 0; ctx.clearRect(0, 0, W, H); }
+  }
+  return {
+    burst(power = 1, at) {
+      if (reduceMotion) return;
+      const k = window.devicePixelRatio || 1;
+      if (!raf) { cv.width = window.innerWidth * k; cv.height = window.innerHeight * k; }
+      ctx = ctx || cv.getContext('2d');
+      const colors = ['#f2c65a', '#ffe9a8', '#fff6d2', '#e0485c', '#b38cf0', '#7fd0f0'];
+      const n = Math.round(110 * power);
+      const ox = at ? at.x * k : cv.width * 0.5, oy = at ? at.y * k : cv.height * 0.38;
+      for (let i = 0; i < n; i++) {
+        const a = Math.random() * Math.PI * 2, sp = (2 + Math.random() * 9) * k;
+        parts.push({ x: ox, y: oy, vx: Math.cos(a) * sp, vy: Math.sin(a) * sp - 3 * k, s: (3 + Math.random() * 6) * k, r: Math.random() * 6, vr: (Math.random() - 0.5) * 0.25,
+          c: colors[i % colors.length], life: 0, max: 70 + Math.random() * 70, ph: Math.random() * 6 });
+      }
+      if (!raf) raf = requestAnimationFrame(tick);
+    }
+  };
+})();
+const Confetti = Sparkle;
+/* smoke puff at a screen point */
+function puffAt(x, y, size) {
+  if (reduceMotion) return;
+  const d = document.createElement('div'); d.className = 'puff'; d.style.left = x + 'px'; d.style.top = y + 'px';
+  const s = size || 60; let h = '';
+  for (let i = 0; i < 9; i++) { const a = i / 9 * Math.PI * 2; h += `<i style="--s:${(s * (0.5 + Math.random() * 0.5)).toFixed(0)}px;--x:${(Math.cos(a) * s * 0.7).toFixed(0)}px;--y:${(Math.sin(a) * s * 0.6 - s * 0.3).toFixed(0)}px;--d:${(Math.random() * 0.08).toFixed(2)}s"></i>`; }
+  d.innerHTML = h; document.body.appendChild(d); setTimeout(() => d.remove(), 1100);
+}
+
+/* ---------- small helpers ---------- */
+function feedback(el, type, html) {
+  if (!type) { el.innerHTML = ''; el.removeAttribute('data-type'); return; }
+  el.dataset.type = type;
+  const mark = { ok: '✓', bad: '×', warn: '!', info: 'i' }[type];
+  el.innerHTML = `<span class="fb-mark" aria-hidden="true">${mark}</span><div class="fb-body">${html}</div>`;
+  if (type === 'bad' && !reduceMotion) { el.classList.remove('shake'); void el.offsetWidth; el.classList.add('shake'); }
+}
+function flash(frame, kind) {
+  if (reduceMotion || !frame) return;
+  const c = kind === 'ok' ? 'flash-ok' : 'flash-bad';
+  frame.classList.remove(c); void frame.offsetWidth; frame.classList.add(c);
+}
+function twoStep(btn, armedLabel, action) {
+  const idle = btn.textContent; let armed = 0;
+  const disarm = () => { clearTimeout(armed); armed = 0; btn.textContent = idle; btn.classList.remove('armed'); };
+  btn.addEventListener('click', () => {
+    if (armed) { disarm(); action(); return; }
+    btn.textContent = armedLabel; btn.classList.add('armed');
+    armed = setTimeout(disarm, 3500);
+  });
+}
+function fenFromBoard(bd, turn) {
+  let out = '';
+  for (let r = 7; r >= 0; r--) { let e = 0; for (let f = 0; f < 8; f++) { const x = bd[r * 8 + f]; if (!x) e++; else { if (e) { out += e; e = 0; } out += x; } } if (e) out += e; if (r) out += '/'; }
+  return out + ' ' + (turn || 'w') + ' - - 0 1';
+}
+function moveListHtml(startFen, sans) {
+  if (!sans.length) return '';
+  const p = new Position(startFen); let n = p.full, t = p.turn, out = [];
+  sans.forEach((s, i) => {
+    if (t === 'w') out.push(`<span><span class="num">${n}.</span> ${esc(ru(s))}</span>`);
+    else out.push(`<span>${i === 0 ? `<span class="num">${n}…</span> ` : ''}${esc(ru(s))}</span>`);
+    if (t === 'b') n++;
+    t = t === 'w' ? 'b' : 'w';
+  });
+  return out.join('');
+}
+
+
+
+/* ---------- board ---------- */
+function arrowPath(x1, y1, x2, y2) {
+  const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy) || 1;
+  const ux = dx / len, uy = dy / len, px = -uy, py = ux;
+  const sw = 0.09, hw = 0.27, hl = 0.38;
+  const sx = x1 + ux * 0.2, sy = y1 + uy * 0.2, bx = x2 - ux * hl, by = y2 - uy * hl;
+  const pts = [[sx + px * sw, sy + py * sw], [bx + px * sw, by + py * sw], [bx + px * hw, by + py * hw], [x2, y2],
+    [bx - px * hw, by - py * hw], [bx - px * sw, by - py * sw], [sx - px * sw, sy - py * sw]];
+  return 'M' + pts.map(p => p[0].toFixed(3) + ' ' + p[1].toFixed(3)).join('L') + 'Z';
+}
+class Board {
+  constructor(el, orient) {
+    this.el = el; this.orient = orient || 'w';
+    this.onMove = null; this.canMove = () => false;
+    this.pos = null; this.last = null; this.sel = -1; this.targets = [];
+    this.marks = {}; this.arrows = []; this.drag = null; this.skipAnim = false; this.promoOpen = false; this.popNew = false;
+    this.build();
+    el.addEventListener('pointerdown', e => this.down(e));
+    window.addEventListener('pointermove', e => this.moveP(e));
+    window.addEventListener('pointerup', e => this.up(e));
+    window.addEventListener('pointercancel', () => this.cancelDrag());
+  }
+  idxAt(row, col) { return this.orient === 'w' ? (7 - row) * 8 + col : row * 8 + (7 - col); }
+  rc(i) { const f = i & 7, r = i >> 3; return this.orient === 'w' ? { row: 7 - r, col: f } : { row: r, col: 7 - f }; }
+  build() {
+    this.el.innerHTML = '';
+    this.sqEls = new Array(64);
+    for (let row = 0; row < 8; row++) {
+      for (let col = 0; col < 8; col++) {
+        const i = this.idxAt(row, col);
+        const d = document.createElement('div');
+        d.className = 'sq ' + ((((i >> 3) + (i & 7)) % 2) ? 'l' : 'd');
+        d.dataset.sq = sqName(i);
+        if (col === 0) { const s = document.createElement('span'); s.className = 'co co-r'; s.textContent = String((i >> 3) + 1); d.appendChild(s); }
+        if (row === 7) { const s = document.createElement('span'); s.className = 'co co-f'; s.textContent = 'abcdefgh'[i & 7]; d.appendChild(s); }
+        this.sqEls[i] = d; this.el.appendChild(d);
+      }
+    }
+    this.ov = document.createElementNS(SVGNS, 'svg');
+    this.ov.setAttribute('class', 'ov'); this.ov.setAttribute('viewBox', '0 0 8 8'); this.ov.setAttribute('aria-hidden', 'true');
+    this.el.appendChild(this.ov);
+    this.cur = new Array(64).fill(null);
+  }
+  setOrient(o) { if (o && o !== this.orient) { this.orient = o; this.build(); if (this.pos) this.render(); } }
+  pieceEl(p) {
+    const s = document.createElementNS(SVGNS, 'svg');
+    s.setAttribute('class', 'pc'); s.setAttribute('viewBox', '0 0 45 45');
+    const u = document.createElementNS(SVGNS, 'use');
+    u.setAttribute('href', '#pc-' + (p === p.toUpperCase() ? 'w' : 'b') + p.toUpperCase());
+    s.appendChild(u);
+    return s;
+  }
+  set(pos, opts = {}) {
+    this.pos = pos;
+    this.last = 'last' in opts ? opts.last : null;
+    this.sel = -1; this.targets = [];
+    if (!opts.keepMarks) { this.marks = {}; this.arrows = []; }
+    this.popNew = !!opts.pop;
+    const anim = opts.anim && !this.skipAnim && !reduceMotion ? opts.anim : null;
+    this.skipAnim = false;
+    this.render(anim);
+    this.popNew = false;
+  }
+  render(anim) {
+    const b = this.pos ? this.pos.board : [];
+    let chk = -1;
+    if (this.pos) { const k = this.pos.kingSq(this.pos.turn); if (k >= 0 && this.pos.inCheck()) chk = k; }
+    for (let i = 0; i < 64; i++) {
+      const el = this.sqEls[i], p = b[i] || '';
+      if (this.cur[i] !== p) {
+        const old = el.querySelector('.pc'); if (old) old.remove();
+        if (p) { const pe = this.pieceEl(p); if (this.popNew && !reduceMotion) pe.classList.add('pop'); el.appendChild(pe); }
+        this.cur[i] = p;
+      }
+      const isT = this.targets.indexOf(i) >= 0;
+      el.classList.toggle('last', !!this.last && (i === this.last.from || i === this.last.to));
+      el.classList.toggle('sel', i === this.sel);
+      el.classList.toggle('dot', isT && !p);
+      el.classList.toggle('cap', isT && !!p);
+      el.classList.toggle('check', i === chk);
+      el.dataset.mark = this.marks[sqName(i)] || '';
+    }
+    if (anim) this.animate(anim);
+    this.drawOverlay();
+  }
+  animate(m) {
+    const size = this.el.clientWidth / 8;
+    if (!size) return;
+    const one = (from, to) => {
+      const pe = this.sqEls[to].querySelector('.pc'); if (!pe) return;
+      const a = this.rc(from), c = this.rc(to);
+      pe.classList.remove('anim');
+      pe.style.transform = `translate(${(a.col - c.col) * size}px, ${(a.row - c.row) * size}px)`;
+      void pe.getBoundingClientRect();
+      pe.classList.add('anim'); pe.style.transform = '';
+      setTimeout(() => pe.classList.remove('anim'), 260);
+    };
+    one(m.from, m.to);
+    if (m.flags === 'k') one(m.to + 1, m.to - 1);
+    if (m.flags === 'q') one(m.to - 2, m.to + 1);
+  }
+  drawOverlay() {
+    const ctr = i => { const q = this.rc(i); return [q.col + 0.5, q.row + 0.5]; };
+    const layers = this.layers ? this.layers(this) : '';
+    this.ov.innerHTML = layers + this.arrows.map(ar => {
+      const p1 = ctr(ar.from), p2 = ctr(ar.to);
+      return `<path d="${arrowPath(p1[0], p1[1], p2[0], p2[1])}" style="fill:${ar.color || 'var(--arrow)'}"/>`;
+    }).join('');
+  }
+  sqAt(x, y) {
+    const r = this.el.getBoundingClientRect();
+    if (x < r.left || y < r.top || x >= r.right || y >= r.bottom) return -1;
+    const col = Math.min(7, Math.floor((x - r.left) / (r.width / 8)));
+    const row = Math.min(7, Math.floor((y - r.top) / (r.height / 8)));
+    return this.idxAt(row, col);
+  }
+  mine(i) {
+    const p = this.pos && this.pos.board[i];
+    return !!p && this.canMove() && ((p === p.toUpperCase()) === (this.pos.turn === 'w'));
+  }
+  select(i) {
+    this.sel = i;
+    this.targets = i >= 0 ? this.pos.moves().filter(m => m.from === i).map(m => m.to) : [];
+    this.render();
+  }
+  down(e) {
+    if ((e.button && e.button !== 0) || this.promoOpen || !this.pos || !this.canMove()) return;
+    const i = this.sqAt(e.clientX, e.clientY); if (i < 0) return;
+    if (this.sel >= 0 && this.targets.indexOf(i) >= 0) { e.preventDefault(); this.tryMove(this.sel, i, false); return; }
+    if (this.mine(i)) {
+      e.preventDefault();
+      if (this.sel !== i) this.select(i);
+      this.drag = { from: i, x: e.clientX, y: e.clientY, on: false };
+    } else if (this.sel >= 0) this.select(-1);
+  }
+  moveP(e) {
+    const d = this.drag; if (!d) return;
+    if (!d.on) {
+      if (Math.hypot(e.clientX - d.x, e.clientY - d.y) < 6) return;
+      d.on = true;
+      const size = this.el.clientWidth / 8;
+      const g = this.pieceEl(this.pos.board[d.from]);
+      g.setAttribute('class', 'drag-ghost'); g.style.width = size + 'px'; g.style.height = size + 'px';
+      document.body.appendChild(g); d.ghost = g;
+      const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.add('lift');
+    }
+    d.ghost.style.left = e.clientX + 'px'; d.ghost.style.top = e.clientY + 'px';
+  }
+  up(e) {
+    const d = this.drag; if (!d) return;
+    this.drag = null;
+    if (!d.on) return;
+    d.ghost.remove();
+    const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.remove('lift');
+    const to = this.sqAt(e.clientX, e.clientY);
+    if (to >= 0 && to !== d.from && this.targets.indexOf(to) >= 0 && this.canMove()) this.tryMove(d.from, to, true);
+    else if (to !== d.from) this.select(-1);
+  }
+  cancelDrag() {
+    const d = this.drag; if (!d) return;
+    this.drag = null; if (d.ghost) d.ghost.remove();
+    const pe = this.sqEls[d.from].querySelector('.pc'); if (pe) pe.classList.remove('lift');
+  }
+  tryMove(from, to, dragged) {
+    const cands = this.pos.moves().filter(m => m.from === from && m.to === to);
+    if (!cands.length) return;
+    this.sel = -1; this.targets = [];
+    const send = pr => {
+      this.skipAnim = dragged;
+      if (this.onMove) this.onMove({ from, to, promotion: pr });
+      this.skipAnim = false;
+      this.render();
+    };
+    if (cands.length > 1) { this.render(); this.askPromo(this.pos.turn, pr => { if (pr) send(pr); else this.render(); }); return; }
+    send('');
+  }
+  askPromo(color, cb) {
+    this.promoOpen = true;
+    const wrap = document.createElement('div'); wrap.className = 'promo';
+    const box = document.createElement('div'); box.className = 'promo-box';
+    const names = { q: 'Ферзь', r: 'Ладья', b: 'Слон', n: 'Конь' };
+    if (this.promoHook) this.promoHook();
+    const close = t => { wrap.remove(); this.promoOpen = false; cb(t); };
+    ['q', 'r', 'b', 'n'].forEach(t => {
+      const btn = document.createElement('button'); btn.type = 'button';
+      btn.title = names[t]; btn.setAttribute('aria-label', names[t]);
+      btn.appendChild(this.pieceEl(color === 'w' ? t.toUpperCase() : t));
+      btn.addEventListener('click', ev => { ev.stopPropagation(); close(t); });
+      box.appendChild(btn);
+    });
+    wrap.appendChild(box);
+    wrap.addEventListener('pointerdown', ev => { ev.stopPropagation(); if (ev.target === wrap) close(null); });
+    this.el.appendChild(wrap);
+    box.querySelector('button').focus();
+  }
+  // plays a move object (from/to/promotion) on this.pos with sound + animation
+  play(mv) {
+    const m = this.pos.findMove(mv); if (!m) return null;
+    const san = this.pos.san(m);
+    this.pos.make(m);
+    if (m.captured) { Sound.capture(); const r = this.sqEls[m.to].getBoundingClientRect(); setTimeout(() => { puffAt(r.left + r.width / 2, r.top + r.height / 2, r.width * 0.9); Sound.poof(); }, 120); } else Sound.move();
+    this.set(this.pos, { last: { from: m.from, to: m.to }, anim: m });
+    if (this.afterPlay) this.afterPlay(m, san);
+    return { m, san };
+  }
+}
+
+
+/* ---------- shell ---------- */
+const CH = [
+  { t: 'Афиша', no: '✦' }, { t: 'Мат или пат?', no: '1' }, { t: 'Исчезающий ферзь', no: '2' }, { t: 'Бешеная ладья', no: '3' },
+  { t: 'Вечный двигатель', no: '4' }, { t: 'Не тот слон', no: '5' }, { t: 'Разоблачение', no: '6' }, { t: 'Гала', no: '7' }, { t: 'Поклон', no: '★' }
+];
+const SCORED = [1, 2, 3, 4, 5, 6, 7];
+const MAXS = SCORED.length * 3;
+let state = store.get('state', null);
+if (!state || state.v !== 1) state = { v: 1, ch: 0, st: {} };
+const save = () => store.set('state', state);
+const totalS = () => SCORED.reduce((s, k) => s + (state.st[k] || 0), 0);
+function setS(ch, n) { if (window.Academy && Academy.on) Academy.reward('ch' + ch, Math.max(1, Math.min(3, n)), CH[ch].t); state.st[ch] = Math.max(state.st[ch] || 0, Math.max(1, Math.min(3, n))); save(); renderTabs(); const s = $('#stars'); s.classList.remove('bump'); void s.offsetWidth; s.classList.add('bump'); }
+const board = new Board($('#board'));
+const card = $('#card');
+let cur = null; const IMPL = {};
+let epoch = 0, demoGen = 0;
+const later = (fn, ms) => { const e = epoch; return setTimeout(() => { if (e === epoch) fn(); }, ms); };
+
+const STAR = '<path d="M24 3l5.6 13.2L44 17.6 33 27.2 36.4 41.6 24 34 11.6 41.6 15 27.2 4 17.6l14.4-1.4z" fill="currentColor"/>';
+const starSvg = cls => `<svg class="${cls || ''}" viewBox="0 0 48 48" aria-hidden="true">${STAR}</svg>`;
+const CORNER = '<svg class="corner {c}" viewBox="0 0 22 22" aria-hidden="true"><path d="M2 20V8Q2 2 8 2h12" fill="none" stroke="currentColor" stroke-width="1.6"/><circle cx="7" cy="7" r="2" fill="currentColor"/></svg>';
+const corners = ['tl', 'tr', 'bl', 'br'].map(c => CORNER.replace('{c}', c)).join('');
+
+function renderTabs() {
+  $('#tabs').innerHTML = CH.map((c, i) => {
+    const n = state.st[i] || 0;
+    const lv = SCORED.includes(i) ? `<span class="lv" aria-label="${n} из 3 звёзд">${[0, 1, 2].map(k => `<i class="${k < n ? 'on' : ''}"></i>`).join('')}</span>` : '';
+    return `<button type="button" data-c="${i}" aria-current="${state.ch === i}" title="${c.no} · ${c.t}">${c.no}<span class="tl">${c.t}</span>${lv}</button>`;
+  }).join('');
+  $('#stars').innerHTML = `${starSvg()}<b>${totalS()}</b>/${MAXS}`;
+}
+$('#tabs').addEventListener('click', e => { const b = e.target.closest('[data-c]'); if (b) go(+b.dataset.c); });
+function go(i) {
+  if (cur && cur.leave) cur.leave();
+  epoch++; demoGen++;
+  clearSeal();
+  state.ch = i; save();
+  board.canMove = () => false; board.onMove = null; board.layers = null; board.marks = {}; board.arrows = []; board.afterPlay = null; board.promoHook = null;
+  board.setOrient('w');
+  $('#board').classList.remove('clicky'); $('#frame').classList.remove('party');
+  tape([]);
+  cur = IMPL[i]; renderTabs(); renderNotes();
+  cur.enter();
+  const t = $(`#tabs [data-c="${i}"]`); if (t && t.scrollIntoView) t.scrollIntoView({ block: 'nearest', inline: 'center' });
+}
+$('#board').addEventListener('click', e => { if (!cur || !cur.onSquare) return; const s = board.sqAt(e.clientX, e.clientY); if (s >= 0) cur.onSquare(s); });
+card.addEventListener('click', e => {
+  const n = e.target.closest('[data-next]'); if (n) { go(+n.dataset.next); return; }
+  const r = e.target.closest('[data-replay]'); if (r) { go(+r.dataset.replay); return; }
+  const f = e.target.closest('.fact button'); if (f) { const box = f.closest('.fact'); box.classList.toggle('open'); f.setAttribute('aria-expanded', box.classList.contains('open')); Sound.reveal(); }
+});
+
+/* card helpers */
+function head(kicker, right, title, task) { return `${corners}<p class="kicker"><span>${kicker}</span><b>${right || ''}</b></p><h1 class="title">${title}</h1>${task ? `<p class="task" id="task">${task}</p>` : ''}`; }
+function pips(n, i, res) { return `<span class="pips" aria-label="Фокус ${Math.min(i + 1, n)} из ${n}">${Array.from({ length: n }, (_, k) => `<i class="${res[k] === true ? 'done' : (res[k] === false ? 'miss' : (k === i ? 'now' : ''))}"></i>`).join('')}</span>`; }
+const say = (type, html) => { const el = $('#fb'); if (el) feedback(el, type, html); };
+function factHtml(title, sub, body) {
+  return `<div class="fact"><button type="button" aria-expanded="false"><span class="inner"><span class="face front"><svg viewBox="0 0 48 48" aria-hidden="true">${STAR}</svg><span><b>${title}</b><span>${sub || 'нажмите, чтобы перевернуть карту'}</span></span></span><span class="face back">${body}</span></span></button></div>`;
+}
+function seal(text, kind, small) { clearSeal(); const s = document.createElement('div'); s.className = 'seal' + (kind ? ' ' + kind : ''); s.innerHTML = (small ? `<small>${small}</small>` : '') + text; $('#frame').appendChild(s); }
+function clearSeal() { $$('.seal').forEach(x => x.remove()); }
+const scoreBy = errs => errs === 0 ? 3 : (errs <= 2 ? 2 : 1);
+const HAT = `<svg class="hat" viewBox="0 0 96 110" aria-hidden="true">
+  <g class="rabbit"><ellipse cx="44" cy="40" rx="15" ry="13" fill="#fff"/><ellipse cx="37" cy="18" rx="4.6" ry="15" fill="#fff" transform="rotate(-10 37 18)"/><ellipse cx="51" cy="18" rx="4.6" ry="15" fill="#fff" transform="rotate(10 51 18)"/><ellipse cx="37" cy="19" rx="2" ry="10" fill="#f4b6c2" transform="rotate(-10 37 19)"/><ellipse cx="51" cy="19" rx="2" ry="10" fill="#f4b6c2" transform="rotate(10 51 19)"/><circle cx="39" cy="38" r="2" fill="#2a1426"/><circle cx="49" cy="38" r="2" fill="#2a1426"/><ellipse cx="44" cy="44" rx="2.4" ry="1.6" fill="#e0485c"/></g>
+  <rect x="14" y="50" width="60" height="9" rx="3" fill="#2b1028"/>
+  <path d="M20 58 L24 98 Q44 104 64 98 L68 58 Z" fill="#2b1028"/>
+  <path d="M22.5 80 Q44 86 65.5 80 L64.6 90 Q44 96 23.4 90 Z" fill="#b3203a"/>
+  <ellipse cx="44" cy="54" rx="30" ry="6" fill="#3a1436"/>
+  <g class="wand"><path d="M78 20 L92 6" stroke="#2a1426" stroke-width="4" stroke-linecap="round"/><path d="M89 9 L92 6" stroke="#fff" stroke-width="4" stroke-linecap="round"/></g>
+  <path d="M74 30 l1.4 3.4 3.4 1.4 -3.4 1.4 -1.4 3.4 -1.4 -3.4 -3.4 -1.4 3.4 -1.4z" fill="#f2c65a"/><path d="M86 22 l1 2.4 2.4 1 -2.4 1 -1 2.4 -1 -2.4 -2.4 -1 2.4 -1z" fill="#f2c65a"/>
+</svg>`;
+function finishCard(ch, n, line, nextLabel) {
+  setS(ch, n); n = state.st[ch];
+  Sound.drum(); later(() => Sparkle.burst(n === 3 ? 1 : 0.5), 350);
+  $('#frame').classList.add('party'); later(() => $('#frame').classList.remove('party'), 2400);
+  return `<div class="finale">${HAT}<div style="display:grid;gap:8px"><div class="starrow" aria-label="${n} ${plural(n, 'звезда', 'звезды', 'звёзд')} из 3">${[0, 1, 2].map(k => starSvg(k < n ? '' : 'off')).join('')}</div><p class="task">${line}</p></div></div>
+    <div class="controls"><button type="button" class="btn primary big" data-next="${ch + 1}">${nextLabel || 'Следующий номер →'}</button><button type="button" class="btn" data-replay="${ch}">Ещё раз</button></div>`;
+}
+function ctl(html) { const el = $('#ctl'); if (el) el.innerHTML = html; }
+const Bt = (id, label, cls) => `<button type="button" class="btn ${cls || ''}" id="${id}">${label}</button>`;
+const on = (id, fn) => { const el = $('#' + id); if (el) el.onclick = fn; };
+
+/* moves strip */
+function tape(sans, startFen) {
+  const el = $('#tapeMoves'); if (!sans.length) { el.innerHTML = ''; return; }
+  const p = new Position(startFen); let n = p.full, t = p.turn; const out = [];
+  sans.forEach((s, k) => { out.push(t === 'w' ? `<span><span class="n">${n}.</span>${esc(ru(s))}</span>` : `<span>${k === 0 ? `<span class="n">${n}…</span>` : ''}${esc(ru(s))}</span>`); if (t === 'b') n++; t = t === 'w' ? 'b' : 'w'; });
+  el.innerHTML = out.slice(-8).join('');
+}
+const fenAfter = (fen, sans) => { const p = new Position(fen); sans.forEach(s => { const m = p.findMove(s); if (!m) throw new Error('bad move ' + s); p.make(m); }); return p.fen(); };
+const keyOf = p => p.fen().split(' ').slice(0, 3).join(' ');
+const sqFromU = u => ({ from: sqIndex(u.slice(0, 2)), to: sqIndex(u.slice(2, 4)), promotion: u[4] || '' });
+
+/* why: mark the king's neighbourhood (stalemate / mate explanation) */
+function showWhy(pos, kind) {
+  const c = pos.turn, k = pos.kingSq(c), them = c === 'w' ? 'b' : 'w';
+  if (k < 0) return;
+  const marks = {}; let n = 0;
+  marks[sqName(k)] = kind === 'mate' ? 'mated' : 'frozen';
+  board.sqEls.forEach(el => el.style.removeProperty('--i'));
+  const f = k & 7, r = k >> 3;
+  for (let dr = -1; dr <= 1; dr++) for (let df = -1; df <= 1; df++) {
+    if (!dr && !df) continue; const ff = f + df, rr = r + dr; if (ff < 0 || ff > 7 || rr < 0 || rr > 7) continue;
+    const s = rr * 8 + ff, p = pos.board[s];
+    if (p && ((p === p.toUpperCase()) === (c === 'w'))) continue;
+    // a square is closed if moving the king there would leave it attacked
+    const save = pos.board[k]; pos.board[k] = ''; const att = pos.attacked(s, them); pos.board[k] = save;
+    if (att) { marks[sqName(s)] = kind === 'mate' ? 'x' : 'xi'; board.sqEls[s].style.setProperty('--i', ++n); }
+  }
+  board.marks = marks; board.render();
+}
+
+/* autoplay a SAN line from fen; cb() at the end */
+function demoLine(fen, sans, cb, opts) {
+  opts = opts || {};
+  const p = new Position(fen); board.set(p); board.arrows = []; board.layers = null;
+  const shown = []; tape(shown, fen);
+  const my = ++demoGen; let k = 0;
+  const step = () => {
+    if (my !== demoGen) return;
+    if (k >= sans.length) { if (cb) cb(); return; }
+    const r = board.play(sans[k]); if (!r) { if (cb) cb(); return; }
+    shown.push(r.san); tape(shown, fen); k++;
+    if (opts.onPly) opts.onPly(k, r.san);
+    later(step, opts.delay || 650);
+  };
+  later(step, opts.first || 450);
+}
+
+/* ---------- verified move-graph player: student moves, computer replies ---------- */
+function makeGraph(o) {
+  // o: { task:{fen, side, G}, onDone(kind, stats), onStep(k, san), onReply(k, san), badText(san, refSan, u), eqText(san), badDemo:{uci:[san..]}, limitKind }
+  const T = o.task, G = T.G;
+  let pos, sans, busy, over, gen = 0, counts, k; let mistakes = 0, hints = 0;
+  const showTape = () => tape(sans, T.fen);
+  function reset() {
+    gen++; demoGen++;
+    pos = new Position(T.fen); sans = []; busy = false; over = false; counts = {}; counts[keyOf(pos)] = 1; k = 0;
+    board.setOrient(T.side); board.set(pos); board.layers = null; board.arrows = []; board.render(); showTape(); clearSeal();
+  }
+  reset();
+  function bump() { const key = keyOf(pos); counts[key] = (counts[key] || 0) + 1; return counts[key]; }
+  function done(kind) {
+    over = true;
+    if (kind === 'stalemate') { showWhy(pos, 'stalemate'); seal('ПАТ!', 'ice', 'ничья'); Sound.freeze(); }
+    else if (kind === 'mate') { showWhy(pos, 'mate'); seal('МАТ!', '', 'фокус удался'); }
+    else if (kind === 'repetition') { seal('НИЧЬЯ', 'mint', 'троекратное повторение'); }
+    else if (o.limitSeal) seal(o.limitSeal[0], o.limitSeal[1] || 'mint', o.limitSeal[2]);
+    flash($('#frame'), 'ok'); Sound.magic();
+    o.onDone(kind, { mistakes, hints, sans });
+  }
+  board.canMove = () => !busy && !over && pos.turn === T.side;
+  board.onMove = mv => {
+    const prev = pos.fen(), key = keyOf(pos), nd = G[key];
+    const r = board.play(mv); if (!r) return;
+    const u = uciOf(r.m);
+    if (nd && u in nd.g) {
+      sans.push(r.san); showTape(); board.arrows = []; board.marks = {}; board.render(); Sound.ok(); k++;
+      if (o.onStep) o.onStep(k, r.san, pos);
+      const st = pos.status();
+      if (st === 'mate' || st === 'stalemate') { done(st); return; }
+      if (bump() >= 3) { done('repetition'); return; }
+      const rep = nd.g[u];
+      if (!rep) { done('limit'); return; }
+      busy = true; const g0 = gen;
+      later(() => {
+        if (g0 !== gen) return;
+        const rr = board.play(sqFromU(rep)); sans.push(rr.san); showTape(); busy = false;
+        if (o.onReply) o.onReply(k, rr.san, pos);
+        const st2 = pos.status();
+        if (st2 === 'stalemate' || st2 === 'mate') { done(st2); return; }
+        if (bump() >= 3) { done('repetition'); return; }
+        if (!G[keyOf(pos)]) done('limit');
+      }, 700);
+      return;
+    }
+    busy = true; const g1 = gen;
+    const back = ms => later(() => { if (g1 !== gen) return; pos = new Position(prev); board.set(pos); board.arrows = []; board.marks = {}; board.render(); clearSeal(); busy = false; }, ms);
+    if (nd && nd.e.includes(u)) { Sound.tick(); say('warn', o.eqText ? o.eqText(r.san) : `${esc(ru(r.san))} — тоже неплохо, но мы ищем другой ход.`); back(1600); return; }
+    mistakes++; Sound.bad(); flash($('#frame'), 'bad');
+    const st = pos.status();
+    if (st === 'stalemate') {
+      showWhy(pos, 'stalemate'); seal('ПАТ', 'ice', 'фокус соперника'); Sound.freeze();
+      say('bad', o.stalemateText ? o.stalemateText(r.san) : `${esc(ru(r.san))}?? Это пат — ничья! Королю некуда ходить, а шаха нет.`);
+      back(2600); return;
+    }
+    if (o.badDemo && o.badDemo[u]) {
+      const seq = o.badDemo[u]; let j = 0;
+      say('bad', o.badDemoText ? o.badDemoText(r.san) : `${esc(ru(r.san))}? Смотрите, что будет…`);
+      const stepD = () => {
+        if (g1 !== gen) return;
+        if (j >= seq.length) {
+          const s3 = pos.status();
+          if (s3 === 'stalemate') { showWhy(pos, 'stalemate'); seal('ПАТ', 'ice', 'фокус соперника'); Sound.freeze(); }
+          back(2600); return;
+        }
+        board.play(seq[j++]); later(stepD, 800);
+      };
+      later(stepD, 700); return;
+    }
+    const ref = nd && nd.b[u]; let refSan = '';
+    if (ref) { const m2 = pos.findMove(sqFromU(ref)); if (m2) { refSan = pos.san(m2); board.arrows = [{ from: m2.from, to: m2.to, color: 'var(--crimson)' }]; board.render(); } }
+    say('bad', o.badText ? o.badText(r.san, refSan, u) : `${esc(ru(r.san))}? ${refSan ? `Ответ <b>${esc(ru(refSan))}</b> — и фокус не удался.` : 'Так не выйдет.'}`);
+    back(1900);
+  };
+  return {
+    reset,
+    hint() {
+      if (busy || over) return false; const nd = G[keyOf(pos)]; if (!nd) return false;
+      const u = o.hintMove ? o.hintMove(nd, k) : Object.keys(nd.g)[0]; if (!u) return false;
+      hints++; board.arrows = [{ from: sqIndex(u.slice(0, 2)), to: sqIndex(u.slice(2, 4)), color: 'var(--plum)' }]; board.render(); Sound.reveal(); return true;
+    },
+    stats: () => ({ mistakes, hints }),
+    pos: () => pos
+  };
+}
+
+/* shared: rounds of graph tasks */
+function roundsChapter(ch, rounds, cfg) {
+  let i, res, errs, L;
+  function show() {
+    const r = rounds[i];
+    card.innerHTML = head(cfg.kicker, pips(rounds.length, i, res), r.title, r.text) +
+      (r.extra || '') + `<div class="fb" id="fb"></div><div class="controls" id="ctl"></div>` + (r.fact ? factHtml(r.fact[0], r.fact[1], r.fact[2]) : '');
+    ctl(Bt('hintB', 'Подсказка', 'hint') + Bt('rsB', 'Заново'));
+    on('hintB', () => { if (L.hint()) say('warn', 'Стрелка показывает ход фокусника.'); });
+    on('rsB', () => { L.reset(); say(); if (r.onReset) r.onReset(); });
+    if (r.onShow) r.onShow();
+    L = makeGraph(Object.assign({}, r.opts || {}, {
+      task: r.task,
+      onStep(k, san, pos) { const t = r.steps && r.steps[k - 1]; if (t) say('ok', t); else say(); if (r.onStep) r.onStep(k, san, pos); },
+      onReply(k, san, pos) { if (r.onReply) r.onReply(k, san, pos); },
+      onDone(kind, st) {
+        const e = st.mistakes + st.hints; errs += e; res[i] = e === 0;
+        card.querySelector('.kicker b').innerHTML = pips(rounds.length, i, res);
+        if (r.onDoneHook) r.onDoneHook(kind);
+        say('ok', (r.done && (r.done[kind] || r.done.any)) || 'Фокус удался!');
+        const last = i === rounds.length - 1;
+        ctl(Bt('nx', last ? 'Итог номера →' : 'Следующий фокус →', 'primary'));
+        on('nx', () => { clearSeal(); if (last) finish(); else { i++; show(); } });
+      }
+    }));
+  }
+  function finish() { card.innerHTML = head(cfg.kicker, '', cfg.doneTitle, '') + finishCard(ch, scoreBy(errs), cfg.doneLine); }
+  return { enter() { i = 0; res = []; errs = 0; show(); } };
+}
+
+/* notes */
+const NOTES = [
+  ['Откройте занавес, прочитайте программу вечера. Машина времени — разминка: группа голосует в чате, ведущий переворачивает карты.', 'Кнопки «Пат за 10 ходов» и «Пат с 32 фигурами» проигрывают партии Сэма Лойда.', 'Звёзды: 3 за номер без ошибок и подсказок.'],
+  ['10 карт. Голосование в чате на счёт «три», потом ведущий открывает карту.', 'После ответа на доске видно, почему: крестики — поля, куда королю нельзя.', 'Карта 9 со взятием на проходе — самая коварная.'],
+  ['Три фокуса. Сначала спасаемся сами, в третьем — сами не попадаемся в пат.', 'Ошибочный ход показывает ответ соперника красной стрелкой.'],
+  ['Белый король заперт. Ладья должна шаховать без остановки: взять её — пат, не взять — вечный шах.', 'Компьютер убегает королём; подходят любые спасающие ходы.'],
+  ['Первый фокус — классический вечный шах. Лампочки считают повторения.', 'Второй — Deep Blue против Каспарова, 1997. Ученики играют за Каспарова.'],
+  ['Шесть быстрых карт: выигрыш или ничья? Затем живая гонка короля в угол.', 'Главный вопрос: какого цвета угол превращения и какого цвета слон.'],
+  ['Позиция Сааведры, 1895. Белые ходы делает группа. На восьмом ходу — выбор фигуры.', 'Если выбрали ферзя — покажется фокус чёрных с патом. Потом ищем лучше.'],
+  ['Гала: три быстрых фокуса из всех номеров вечера.'],
+  ['Подведите итог, раздайте домашнее задание и PGN для Lichess.']
+];
+function renderNotes() { $('#notes').innerHTML = `<p class="kicker" style="margin-bottom:8px"><span>${CH[state.ch].no} · ${CH[state.ch].t}</span></p><ul>${NOTES[state.ch].map(n => `<li>${n}</li>`).join('')}</ul>`; }
+$('#notesBtn').addEventListener('click', () => $('#drawer').classList.toggle('open'));
+$('#drawerClose').addEventListener('click', () => $('#drawer').classList.remove('open'));
+document.addEventListener('keydown', e => { if (e.key === 'Escape') $('#drawer').classList.remove('open'); });
+$('#soundBtn').setAttribute('aria-pressed', String(prefs.sound));
+$('#soundBtn').addEventListener('click', () => { prefs.sound = !prefs.sound; store.set('sound', prefs.sound); $('#soundBtn').setAttribute('aria-pressed', String(prefs.sound)); if (prefs.sound) Sound.magic(); });
+const RUP = s => esc(ru(s));
+
+
+/* ---------- numbers of the evening ---------- */
+
+/* ✦ — playbill */
+IMPL[0] = (() => {
+  const EP = [
+    { t: 'Шатрандж, арабский Восток, X век', a: 0, back: '<b>Победа!</b> В шатрандже пат был выигрышем для того, кто его поставил.' },
+    { t: 'Испания, 1497 год', a: 1, back: '<b>Полпобеды.</b> По книге Лусены пат приносил лишь половину ставки.' },
+    { t: 'Россия и Англия, XVII век', a: 2, back: '<b>Поражение!</b> Кто ставил пат — тот и проигрывал.' },
+    { t: 'Наши дни', a: 3, back: '<b>Ничья.</b> Правило утвердилось в XIX веке. «Пат» — от французского <i>pat</i> и итальянского <i>patta</i>: «ничья».' }
+  ];
+  const OPTS = ['победа', 'полпобеды', 'поражение', 'ничья'];
+  function epochs() {
+    return `<div class="epochs" id="epochs">${EP.map((e, i) => `<div class="epoch" data-e="${i}"><div class="inner"><div class="face front"><b>${e.t}</b><div class="opts">${OPTS.map((o, k) => `<button type="button" data-o="${k}">${o}</button>`).join('')}</div></div><div class="face back">${e.back}</div></div></div>`).join('')}</div>`;
+  }
+  function play(which) {
+    const g = D.loyd[which];
+    clearSeal(); board.marks = {};
+    demoLine(D.start, g.moves, () => { const p = board.pos; if (p.status() === 'stalemate') { showWhy(p, 'stalemate'); seal('ПАТ!', 'ice', which === 'ten' ? '10 ходов' : 'все 32 фигуры'); Sound.freeze(); Sparkle.burst(0.5); } say('info', g.note); }, { delay: 520 });
+  }
+  return {
+    enter() {
+      board.set(new Position(D.loyd.ten.fen)); showWhy(board.pos, 'stalemate');
+      card.innerHTML = head('Афиша', '90 минут', 'Ничья из шляпы',
+        'Сегодня проигранные позиции спасаются на глазах у публики. А в финале — разоблачение самого знаменитого фокуса в истории шахмат.') +
+        `<div class="prog">${CH.slice(1, 8).map((c, i) => `<span><i>${i + 1}</i>${c.t}</span>`).join('')}</div>
+        <p class="kicker"><span>Машина времени: что получал тот, кто поставил пат?</span></p>${epochs()}
+        <div class="tricks"><button type="button" class="btn" id="l10">▶ Пат за 10 ходов</button><button type="button" class="btn" id="l12">▶ Пат с 32 фигурами</button></div>
+        <div class="fb" id="fb"></div>
+        <div class="controls"><button type="button" class="btn primary big" data-next="1">Номер 1 →</button></div>`;
+      on('l10', () => play('ten')); on('l12', () => play('all'));
+      $('#epochs').addEventListener('click', e => {
+        const b = e.target.closest('[data-o]'); if (!b) return;
+        const box = b.closest('.epoch'), ep = EP[+box.dataset.e], ok = +b.dataset.o === ep.a;
+        box.querySelector('.back').classList.add(ok ? 'ok' : 'no');
+        box.classList.add('open'); if (ok) { Sound.ok(); const r = box.getBoundingClientRect(); Sparkle.burst(0.25, { x: r.left + r.width / 2, y: r.top + r.height / 2 }); } else Sound.bad();
+      });
+    }
+  };
+})();
+
+/* 1 — mate or stalemate? */
+IMPL[1] = (() => {
+  const C = D.cards; let i, res, errs, locked;
+  const DECK = [
+    { k: 'mate', suit: '♥', cls: 'red', lbl: 'Мат' },
+    { k: 'stalemate', suit: '♣', cls: 'ice', lbl: 'Пат' },
+    { k: 'none', suit: '♠', cls: 'blk', lbl: 'Ни то ни другое', sm: 'есть ход' }
+  ];
+  function show() {
+    const c = C[i]; locked = false; clearSeal();
+    const p = new Position(c.fen); board.set(p); board.marks = {}; board.arrows = []; board.render();
+    card.innerHTML = head('Номер 1 · карты', pips(C.length, i, res), 'Мат или пат?', `Ход ${p.turn === 'w' ? 'белых' : 'чёрных'}. ${c.q || 'Что на доске?'}`) +
+      `<div class="deck" id="deck">${DECK.map(d => `<button type="button" class="pcard ${d.cls}" data-k="${d.k}"><span class="pip a">${d.suit}</span><span class="suit">${d.suit}</span><span class="lbl">${d.lbl}</span>${d.sm ? `<small>${d.sm}</small>` : ''}<span class="pip b">${d.suit}</span></button>`).join('')}</div>
+      <div class="fb" id="fb"></div><div class="controls" id="ctl"></div>` + (i === 0 ? factHtml('Фокус-факт', 'Багио, 1978', '5-я партия матча Карпов — Корчной закончилась <b>патом</b> на 124-м ходу. Соперники были в ссоре и не стали договариваться о ничьей. Это единственная партия матчей на первенство мира, закончившаяся патом.') : '');
+    $('#deck').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b && !locked) answer(b.dataset.k); });
+  }
+  function answer(k) {
+    locked = true; const c = C[i], ok = k === c.ans;
+    $$('#deck .pcard').forEach(b => { b.disabled = true; if (b.dataset.k === c.ans) b.classList.add('right'); else if (b.dataset.k === k) b.classList.add('wrong'); else b.classList.add('dim'); });
+    res[i] = ok; if (!ok) errs++;
+    card.querySelector('.kicker b').innerHTML = pips(C.length, i, res);
+    const p = board.pos;
+    if (c.ans === 'none') { const m = p.findMove(c.esc); board.marks = {}; board.arrows = [{ from: m.from, to: m.to, color: 'var(--mint)' }]; board.render(); seal('ЕСТЬ ХОД', 'mint', c.escRu); }
+    else { showWhy(p, c.ans); seal(c.ans === 'mate' ? 'МАТ' : 'ПАТ', c.ans === 'mate' ? '' : 'ice'); }
+    if (ok) { Sound.ok(); const r = $('#deck .right').getBoundingClientRect(); Sparkle.burst(0.3, { x: r.left + r.width / 2, y: r.top + r.height / 2 }); } else Sound.bad();
+    say(ok ? 'ok' : 'bad', c.why);
+    const last = i === C.length - 1;
+    ctl(Bt('nx', last ? 'Итог номера →' : 'Следующая карта →', 'primary')); on('nx', () => { if (last) finish(); else { i++; show(); } });
+  }
+  function finish() {
+    clearSeal(); const n = errs <= 1 ? 3 : (errs <= 3 ? 2 : 1);
+    card.innerHTML = head('Номер 1 · карты', '', 'Карты открыты', '') + finishCard(1, n, `Верно ${C.length - errs} из ${C.length}. Пат — это когда <b>шаха нет</b>, а ходить нечем. Не забывайте про связанные фигуры и взятие на проходе!`);
+  }
+  return { enter() { i = 0; res = []; errs = 0; show(); } };
+})();
+
+/* 2 — vanishing queen */
+IMPL[2] = roundsChapter(2, [
+  { title: 'Ферзь-камикадзе', task: D.g.q1,
+    text: 'Ход белых. Чёрные грозят матом, у белых — только ферзь. Король h1 заперт: h2 упёрлась, g1 и g2 под ударом. Отдайте ферзя так, чтобы его <b>пришлось</b> взять.',
+    steps: ['Ферзь лезет под удар с шахом!', 'И снова шах! Ферзь не отстаёт.', 'Ферзь шахует без конца.'],
+    done: { stalemate: 'Пат! Ферзь исчез — и у белых не осталось ни одного хода.', limit: 'Ферзь-камикадзе: взять его — пат, не взять — вечный шах. Ничья!' },
+    opts: { limitSeal: ['НИЧЬЯ', 'mint', 'бешеный ферзь'] } },
+  { title: 'Угол-ловушка', task: D.g.pc,
+    text: 'Ход чёрных. У белых ферзь, у чёрных пешка c2 и король b1. Ферзь шахует. Куда спрятать короля, чтобы <b>пешка спасла</b> партию?',
+    steps: ['Король прячется в угол. Если Ф:c2 — пат!', 'Король ходит у пешки — ферзю не подступиться.', 'Белый король далеко — ничья.'],
+    done: { any: 'Король жмётся к углу: возьмёт ферзь пешку c2 — будет пат. Белый король слишком далеко — ничья!' },
+    opts: { limitSeal: ['НИЧЬЯ', 'mint', 'фокус с пешкой'], badText: (san, ref) => `${RUP(san)}? ${ref ? `Ответ <b>${RUP(ref)}</b> — пешка падает, и пата не будет.` : 'Пешка пропадёт.'}` } },
+  { title: 'Не попадитесь сами', task: D.g.r2,
+    text: 'Ход белых. Мат в 2 хода. Осторожно: самый «зажимающий» ход ставит пат!',
+    steps: ['Король отнимает g8. Чёрным остаётся Крh7.', 'Мат!'],
+    done: { mate: 'Мат! Сначала король отнял поле, и только потом ладья ударила по линии «h».' },
+    opts: { stalemateText: san => `${RUP(san)}?? Пат! Король h8 заперт, а шаха нет — ничья.` },
+    fact: ['Фокус-факт', 'а может, пат — это победа?', 'Эмануил Ласкер и Рихард Рети предлагали давать за пат <b>¾ очка</b>. В 2009 году гроссмейстер Ларри Кауфман предложил считать пат победой. Ларри Эванс возражал: это «грубое предложение, ломающее вековую традицию».'] }
+], { kicker: 'Номер 2 · исчезающий ферзь', doneTitle: 'Ферзь исчез!', doneLine: 'Пат спасает, когда король заперт, а остальные фигуры можно отдать с шахом. А сильнейшей стороне нужно всегда оставлять королю соперника хотя бы одно поле.' });
+
+/* 3 — mad rook */
+const shahCount = k => `Шах №${k}${k >= 5 ? '' : ` — ещё ${5 - k}`}.`;
+IMPL[3] = roundsChapter(3, [
+  { title: 'Ладья-камикадзе', task: D.g.mr1,
+    text: 'Ход белых. Пешка f2 вот-вот станет ферзём, белый король заперт. Шахуйте ладьёй без остановки — <b>5 шахов</b>, и ничья!',
+    steps: [1, 2, 3, 4, 5].map(shahCount),
+    done: { limit: 'Ладья неуловима: взять её — пат, убежать — некуда. Это «вечная ладья».', stalemate: 'Ладью взяли — пат! Ничья.' },
+    opts: { limitSeal: ['ВЕЧНАЯ ЛАДЬЯ', 'mint', 'ничья'], badText: (san, ref) => `${RUP(san)}? ${ref ? `<b>${RUP(ref)}</b> — и белым конец.` : 'Без шаха чёрные успеют поставить мат.'} Шахуйте!` } },
+  { title: 'В духе Эванса', task: D.g.mr2,
+    text: 'Ход белых. Как в партии Эванс — Решевский: чёрные грозят Лh2#. У белых ферзь и ладья — избавьтесь от них <b>с шахом</b>!',
+    steps: ['Фигура отдана с шахом!', 'Снова шах!', 'Шах!', 'Шах!', 'Шах!'],
+    done: { stalemate: 'Пат! Всё отдано — ничья. Так спасся Эванс в 1963 году.', limit: 'Фигуры-камикадзе шахуют без конца. Ничья!' },
+    opts: { limitSeal: ['НИЧЬЯ', 'mint', 'вечные шахи'] },
+    fact: ['Фокус-факт', '«Надувательство века», 1963', 'Чемпионат США 1963/64. Решевский выигрывал и сыграл 48…Ф:g3?? Эванс ответил 49.Фg8+!! Кр:g8 50.Л:g7+! Взять ладью — пат, не взять — она шахует вечно. Ничья! В 2007 году так же спасся Магнус Карлсен: 46 ходов защищал ладью против ладьи и слона, а затем отдал ладью — 109.Лd2+ С:d2, пат.'] }
+], { kicker: 'Номер 3 · бешеная ладья', doneTitle: 'Ладья неуловима', doneLine: 'Если ваш король заперт, последняя фигура становится «бешеной»: она шахует без остановки, и брать её бесполезно — будет пат.' });
+
+/* 4 — perpetual motion */
+const jug = `<div class="juggler" id="jug"><svg viewBox="-40 -54 80 72" aria-hidden="true"><circle class="ball" cx="0" cy="-4" r="5.5" fill="#e0485c"/><circle class="ball" cx="0" cy="-4" r="5.5" fill="#f2c65a"/><circle class="ball" cx="0" cy="-4" r="5.5" fill="#7fd0f0"/><path d="M-13 -2 L-11 14 Q0 17 11 14 L13 -2 Z" fill="#2b1028"/><path d="M-12.2 7 Q0 10 12.2 7 L11.6 11 Q0 14 -11.6 11 Z" fill="#b3203a"/><ellipse cx="0" cy="-2" rx="19" ry="4.5" fill="#3a1436"/></svg><div><p><b id="jugN">Шахов: 0</b>повторения позиции</p><div class="lamps"><i></i><i></i><i></i></div></div></div>`;
+function jugUpdate(checks, rep) {
+  const n = $('#jugN'); if (!n) return;
+  n.textContent = 'Шахов: ' + checks;
+  $$('#jug .lamps i').forEach((l, k) => l.classList.toggle('on', k < rep));
+  $('#jug').classList.toggle('on', checks > 0);
+}
+function perpetualRound(o) {
+  let checks = 0, seen = {};
+  const top = () => Math.max(0, ...Object.values(seen));
+  const reset = () => { checks = 0; seen = {}; jugUpdate(0, 0); };
+  const mark = pos => { const key = keyOf(pos); seen[key] = (seen[key] || 0) + 1; };
+  return Object.assign(o, {
+    extra: jug,
+    onShow: reset, onReset: reset,
+    onStep(k, san, pos) { if (san.includes('+')) { checks++; Sound.toss(); } mark(pos); jugUpdate(checks, top()); },
+    onReply(k, san, pos) { mark(pos); jugUpdate(checks, top()); },
+    onDoneHook() { const j = $('#jug'); if (j) { j.classList.add('on'); $$('#jug .lamps i').forEach(l => l.classList.add('on')); } }
+  });
+}
+IMPL[4] = roundsChapter(4, [
+  perpetualRound({ title: 'Маятник', task: D.g.pp,
+    text: 'Ход белых. У чёрных лишняя ладья, и мат на подходе. Найдите шахи, которые будут <b>повторяться вечно</b>.',
+    steps: ['Шах с e8! Король бежит на h7.', 'Шах с h5! Король возвращается.', 'Опять e8…', 'Опять h5…', 'И снова e8!'],
+    done: { repetition: 'Троекратное повторение — ничья! Ферзь качается e8–h5, как маятник.', limit: 'Вечный шах — ничья!' },
+    opts: { badText: (san, ref) => `${RUP(san)}? ${ref ? `<b>${RUP(ref)}</b> — и вечного шаха не будет.` : ''}` } }),
+  perpetualRound({ title: 'Каспаров сдался зря', task: D.g.db,
+    text: 'Deep Blue — Каспаров, 4 мая 1997, 2-я партия. После 45.Лa6 чемпион мира <b>сдался</b>. Вы — Каспаров. Найдите спасение!',
+    steps: ['Фe3!! Ферзь врывается к белому королю.', 'Лe8! Ладья защищает e5 и рвётся в атаку.', 'h5!! Теперь белому королю не спрятаться на h4.', 'Шах!', 'Шах!', 'Шах!', 'Шах!'],
+    done: { any: 'Вечный шах! Наутро друзья показали Каспарову эту ничью. Матч он проиграл: 2½ : 3½ — впервые чемпион мира уступил компьютеру.' },
+    opts: { limitSeal: ['ВЕЧНЫЙ ШАХ', 'mint', 'Каспаров спасён'], hintMove: nd => Object.keys(nd.g)[0],
+      badText: (san, ref) => `${RUP(san)}? ${ref ? `Ответ <b>${RUP(ref)}</b> — и белые выигрывают.` : 'Так партия проиграна.'}`,
+      eqText: san => `${RUP(san)} — тоже держит! Но найдите ход из анализа друзей Каспарова.` },
+    fact: ['Фокус-факт', 'Нью-Йорк, май 1997', 'Каспаров сдался, не увидев спасения. Ничью нашли уже после партии: 45…Фe3! 46.Ф:d6 Лe8 47.h4 h5!! — и чёрный ферзь шахует вечно. Ходы машины так удивили Каспарова, что он подозревал: компьютеру помогали люди.'] })
+], { kicker: 'Номер 4 · вечный двигатель', doneTitle: 'Двигатель запущен', doneLine: 'Вечный шах спасает, когда у соперника голый король, а у вас — ферзь. Ищите два поля, между которыми ферзь может качаться бесконечно.' });
+
+/* 5 — wrong bishop */
+IMPL[5] = (() => {
+  const C = D.wb; let i, res, errs, L, phase;
+  function colorLayer(bsq, corner) {
+    const dark = ((bsq >> 3) + (bsq & 7)) % 2 === 0;
+    board.marks = {}; board.sqEls.forEach(el => el.style.removeProperty('--i'));
+    for (let q = 0; q < 64; q++) { if ((((q >> 3) + (q & 7)) % 2 === 0) !== dark) continue; board.marks[sqName(q)] = dark ? 'beamd' : 'beaml'; const rc = board.rc(q); board.sqEls[q].style.setProperty('--i', rc.row + rc.col); }
+    board.marks[corner] = 'corner'; board.render();
+  }
+  function showCard() {
+    const c = C[i]; clearSeal(); board.layers = null; board.arrows = [];
+    board.set(new Position(c.fen)); board.marks = {}; board.render();
+    card.innerHTML = head('Номер 5 · не тот слон', pips(C.length + 1, i, res), 'Выигрыш или ничья?', `Ход белых. ${c.q}`) +
+      `<div class="deck two" id="deck"><button type="button" class="pcard red" data-k="win"><span class="pip a">♦</span><span class="suit">♦</span><span class="lbl">Выигрыш</span><span class="pip b">♦</span></button><button type="button" class="pcard ice" data-k="draw"><span class="pip a">♣</span><span class="suit">♣</span><span class="lbl">Ничья</span><span class="pip b">♣</span></button></div>
+      <div class="fb" id="fb"></div><div class="controls" id="ctl"></div>` + (i === 0 ? factHtml('Фокус-факт', 'почему не выгнать короля?', 'Слон никогда не атакует поле другого цвета. Если угол превращения «не его», король сидит там вечно: шагает a8–b7 туда-обратно, а прижмёте — получите пат.') : '');
+    $('#deck').addEventListener('click', e => { const b = e.target.closest('[data-k]'); if (b && !b.disabled) answer(b.dataset.k); });
+  }
+  function answer(k) {
+    const c = C[i], ok = k === c.ans;
+    $$('#deck .pcard').forEach(b => { b.disabled = true; if (b.dataset.k === c.ans) b.classList.add('right'); else b.classList.add(b.dataset.k === k ? 'wrong' : 'dim'); });
+    res[i] = ok; if (!ok) errs++; card.querySelector('.kicker b').innerHTML = pips(C.length + 1, i, res);
+    colorLayer(sqIndex(c.bsq), c.corner);
+    seal(c.ans === 'win' ? 'ВЫИГРЫШ' : 'НИЧЬЯ', c.ans === 'win' ? '' : 'ice', c.ans === 'win' ? 'слон того цвета' : 'не тот слон');
+    if (ok) Sound.ok(); else Sound.bad();
+    say(ok ? 'ok' : 'bad', c.why);
+    ctl(Bt('nx', i === C.length - 1 ? 'Живая гонка →' : 'Следующая карта →', 'primary')); on('nx', () => { i++; if (i < C.length) showCard(); else race(); });
+  }
+  function race() {
+    phase = 'race'; clearSeal(); board.layers = null; board.marks = {};
+    card.innerHTML = head('Номер 5 · не тот слон', pips(C.length + 1, i, res), 'Гонка в угол', 'Ход чёрных. Слон тёмнопольный, угол a8 — светлый. Успейте королём в угол!') +
+      `<div class="fb" id="fb"></div><div class="controls" id="ctl"></div>`;
+    ctl(Bt('hintB', 'Подсказка', 'hint') + Bt('rsB', 'Заново'));
+    on('hintB', () => { if (L.hint()) say('warn', 'Стрелка показывает путь короля.'); });
+    on('rsB', () => { L.reset(); say(); });
+    L = makeGraph({ task: D.g.wb, limitSeal: ['НИЧЬЯ', 'ice', 'король в углу'],
+      badText: (san, ref) => `${RUP(san)}? ${ref ? `Ответ <b>${RUP(ref)}</b>` : ''} — и король отрезан от угла.`,
+      onStep(k) { say('ok', ['Крc7! Только так: король целится на b8.', 'Крb8! Король у самого угла.', 'Крa8 — король в углу!'][k - 1] || ''); },
+      onDone(kind, st) { errs += st.mistakes + st.hints; res[C.length] = st.mistakes + st.hints === 0; card.querySelector('.kicker b').innerHTML = pips(C.length + 1, C.length, res); colorLayer(sqIndex('f2') , 'a8');
+        say('ok', 'Король в углу a8 — слон «не того цвета» бессилен. Ничья!'); ctl(Bt('nx', 'Итог номера →', 'primary')); on('nx', finish); }
+    });
+  }
+  function finish() {
+    clearSeal(); board.layers = null; board.render();
+    card.innerHTML = head('Номер 5 · не тот слон', '', 'Не тот слон', '') + finishCard(5, errs === 0 ? 3 : (errs <= 2 ? 2 : 1), 'Ладейная пешка + слон, который не бьёт угол превращения, = ничья, если король защиты успел в угол. Даже две такие пешки не помогут!');
+  }
+  return { enter() { i = 0; res = []; errs = 0; phase = 'cards'; showCard(); } };
+})();
+
+/* 6 — Saavedra: the trick exposed */
+IMPL[6] = (() => {
+  let L, errs;
+  const STEPS = ['Пешка у цели. Ладья начинает шаховать.', 'Король идёт навстречу ладье, прячась от шахов.', 'Ещё ближе…', 'Ещё шаг…', 'Шахов больше нет! Но чёрные готовят фокус: 5…Лd4!', 'ЛАДЬЯ!! Теперь на 6…Лc4+ просто 7.Л:c4 — и пата нет: у короля есть поле a2. А грозит Лa8#.', 'Двойной удар: мат Лc1# или взятие ладьи a4. Белые выигрывают!'];
+  function show() {
+    errs = 0;
+    card.innerHTML = head('Номер 6 · разоблачение', 'Глазго, 1895', 'Позиция Сааведры',
+      'Ход белых. Пешка почти дошла, но ладья чёрных готовит фокус с патом. Проведите пешку — и <b>разоблачите</b> фокус!') +
+      `<div class="fb" id="fb"></div><div class="controls" id="ctl"></div>` +
+      factHtml('Фокус-факт', 'священник, который нашёл один ход', 'История началась с партии Фентон — Поттер (1875). В 1895 году обозреватель Барбье напечатал похожую позицию в газете Глазго <i>Weekly Citizen</i> как ничейную. Испанский священник <b>Фернандо Сааведра</b> (1849–1922), слабый любитель, нашёл 6.c8Л!! — и попал в историю. Этот этюд называют самым знаменитым в мире.');
+    ctl(Bt('hintB', 'Подсказка', 'hint') + Bt('rsB', 'Заново'));
+    on('hintB', () => { if (L.hint()) say('warn', 'Стрелка показывает ход Сааведры.'); });
+    on('rsB', () => { L.reset(); say(); });
+    L = makeGraph({ task: D.g.sv, limitSeal: ['ВЫИГРЫШ', 'mint', 'фокус разоблачён'],
+      badDemo: { c7c8q: ['Rc4+', 'Qxc4'] },
+      badDemoText: san => `${RUP(san)}? А вот и фокус: 6…Лc4+! 7.Ф:c4 — <b>пат</b>!`,
+      eqText: san => `${RUP(san)} — тоже неплохо, но пройдём путём Сааведры.`,
+      badText: (san, ref, u) => u === 'c7c8b' || u === 'c7c8n' ? `${RUP(san)}? С лёгкой фигурой не выиграть: ничья.` : `${RUP(san)}? ${ref ? `Ответ <b>${RUP(ref)}</b> — и пешка пропадёт или ничья.` : 'Так не выиграть.'}`,
+      onStep(k) { say('ok', STEPS[k - 1] || ''); if (k === 6) { Sparkle.burst(0.4); } },
+      onDone(kind, st) {
+        errs = st.mistakes + st.hints;
+        say('ok', 'Ладья вместо ферзя — фокус чёрных разоблачён! Белые выигрывают.');
+        ctl(Bt('nx', 'Итог номера →', 'primary')); on('nx', finish);
+      }
+    });
+  }
+  function finish() { clearSeal(); card.innerHTML = head('Номер 6 · разоблачение', '', 'Фокус разоблачён', '') + finishCard(6, scoreBy(errs), 'Ферзь — не всегда лучшая фигура: иногда он ставит пат. Превращение в ладью лишает соперника фокуса.'); }
+  return { enter() { show(); } };
+})();
+
+/* 7 — gala */
+IMPL[7] = roundsChapter(7, [
+  { title: 'Семь ловушек', task: D.g.g1,
+    text: 'Ход белых. Мат в 1 ход. Но осторожно: на доске целых <b>семь</b> ходов, которые ставят пат!',
+    done: { mate: 'Мат! Только Фb8#. Семь «красивых» ходов вроде Фf7 или Крg6 — пат.' },
+    opts: { stalemateText: san => `${RUP(san)}?? Пат! Королю h8 некуда, а шаха нет.`, badText: san => `${RUP(san)} — не мат. Ищите!` } },
+  { title: 'Разоблачите «не того слона»', task: D.g.g2,
+    text: 'Позиция из номера 5, но ход теперь <b>белых</b>. Не пустите короля в угол!',
+    steps: ['a6! Пешка рвётся вперёд.', 'Сa7!! Слон занял a7 и стережёт b8: в угол королю не попасть.'],
+    done: { any: 'Король отрезан от угла — белые выигрывают. Один темп решает всё!' },
+    opts: { limitSeal: ['ВЫИГРЫШ', 'mint', 'угол закрыт'], badText: (san, ref) => `${RUP(san)}? ${ref ? `<b>${RUP(ref)}</b> — и король успевает в угол.` : ''}` } },
+  { title: 'Последний фокус', task: D.g.g3,
+    text: 'Ход чёрных. Ладейная пешка против ферзя. Где спастись?',
+    steps: ['Крa1! Возьмёт ферзь пешку — пат.', 'Король не отходит от пешки.', 'Белый король далеко — ничья.'],
+    done: { any: 'Ничья! С ладейной пешкой фокус с патом работает, даже когда ферзь шахует.' },
+    opts: { limitSeal: ['НИЧЬЯ', 'ice', 'король в углу'] },
+    fact: ['Фокус-факт', 'гроссмейстеры тоже попадаются', '1896 год: великий составитель этюдов <b>Алексей Троицкий</b> сам спасся патом в партии с Фогтом: 1.Лd1! Сh3? 2.Л:d8+ Кр:d8 3.Фd1+! Ф:d1 — пат. А в 1994 году в матче претендентов Крамник чёрными сыграл против Гельфанда 67…Фc1! с идеей Фh1+ и Фh2+!! — Кр:h2, пат.'] }
+], { kicker: 'Номер 7 · гала', doneTitle: 'Гала окончен', doneLine: 'Вы спасали, выигрывали и не попадались. Публика аплодирует стоя!' });
+
+/* ★ — bow */
+IMPL[8] = {
+  enter() {
+    const n = totalS();
+    board.set(new Position(D.g.sv.fen)); board.marks = {}; board.render();
+    card.innerHTML = head('Поклон', `${n} из ${MAXS}`, 'Фокусы вечера', '') +
+      `<div class="finale">${HAT}<div class="starrow">${[0, 1, 2].map(k => starSvg(k < Math.round(n / MAXS * 3) ? '' : 'off')).join('')}</div></div>
+      <ul class="recap">
+        <li><i>♣</i><span><b>Пат</b> — нет шаха и нет ходов. Отдайте всё, что может ходить.</span></li>
+        <li><i>♜</i><span><b>Бешеная ладья</b> — шахуйте без остановки: взять — пат.</span></li>
+        <li><i>∞</i><span><b>Вечный шах</b> — ищите два поля для качелей ферзя.</span></li>
+        <li><i>♝</i><span><b>Не тот слон</b> — ладейная пешка и угол другого цвета.</span></li>
+        <li><i>♖</i><span><b>Сааведра</b> — не можете ставить пат? Превратитесь в ладью.</span></li>
+      </ul>
+      <p class="kicker"><span>Домашнее задание</span></p>
+      <div class="links">
+        <a href="https://lichess.org/training/equality" target="_blank" rel="noopener">Задачи «Уравнение» на Lichess <span>спасти проигранное</span></a>
+        <button type="button" id="pgnB">Скачать PGN урока <span>Lichess → Исследование → Импорт PGN</span></button>
+        <button type="button" id="pgnC">Скопировать PGN <span>и вставить в Lichess</span></button>
+      </div>
+      <div class="fb" id="fb"></div>
+      <div class="controls"><button type="button" class="btn" id="resetAll">Сбросить звёзды</button></div>`;
+    Sound.drum(); later(() => Sparkle.burst(1.2), 400);
+    const blobSave = () => { try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([window.SHLYAPA_PGN], { type: 'application/x-chess-pgn' })); a.download = 'nichya-iz-shlyapy-lichess.pgn'; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500); } catch (e) { say('warn', 'Скачивание недоступно — скопируйте PGN кнопкой ниже.'); } };
+    on('pgnB', async () => {
+      if (window.Academy && Academy.on) { Academy.download('nichya-iz-shlyapy-lichess.txt', window.SHLYAPA_PGN); say('ok', 'Академия предложит сохранить файл. В Lichess: Исследование → Импорт PGN.'); return; }
+      const dl = window.claude && window.claude.use ? await window.claude.use('downloads') : null;
+      if (!dl) { blobSave(); return; }
+      try { await dl.save({ filename: 'nichya-iz-shlyapy-lichess.txt', data: window.SHLYAPA_PGN }); say('ok', 'Файл сохранён. В Lichess: Исследование → Импорт PGN → вставьте текст из файла.'); }
+      catch (e) { if (e && e.code === 'declined') say(); else say('warn', 'Скачивание недоступно здесь — скопируйте PGN кнопкой ниже.'); }
+    });
+    on('pgnC', async () => {
+      try { await navigator.clipboard.writeText(window.SHLYAPA_PGN); say('ok', 'PGN скопирован. В Lichess: Исследование → Импорт PGN → вставьте.'); }
+      catch (e) { say('warn', 'Браузер не дал скопировать. Используйте кнопку «Скачать PGN».'); }
+    });
+    twoStep($('#resetAll'), 'Точно сбросить?', () => { state = { v: 1, ch: 8, st: {} }; save(); go(8); });
+  }
+};
+
+/* start */
+renderTabs();
+go(Math.min(CH.length - 1, Math.max(0, state.ch || 0)));
+(function curtain() {
+  const c = $('#curtain'); if (!c) return;
+  if (reduceMotion) { c.classList.add('gone'); return; }
+  setTimeout(() => { c.classList.add('open'); Sound.drum(); }, 650);
+  setTimeout(() => c.classList.add('gone'), 2100);
+})();
+})();
+
+</script>
+
+</body>
+</html>
